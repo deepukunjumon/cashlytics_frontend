@@ -1,0 +1,50 @@
+import { useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuthStore } from '@/store/authStore';
+import { toast } from 'sonner';
+
+export default function SsoCallbackPage() {
+  const [params] = useSearchParams();
+  const { setAuth } = useAuthStore();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const token = params.get('token');
+    const error = params.get('error');
+
+    if (error) {
+      toast.error(error || 'SSO login failed.');
+      navigate('/login');
+      return;
+    }
+
+    if (!token) {
+      toast.error('No token received from SSO provider.');
+      navigate('/login');
+      return;
+    }
+
+    // Fetch the authenticated user using the token
+    import('@/api/axios').then(({ api }) => {
+      api.get('/profile', { headers: { Authorization: `Bearer ${token}` } })
+        .then((res) => {
+          const user = res.data?.data ?? res.data;
+          setAuth(user, token);
+          navigate(user.onboarding_completed ? '/dashboard' : '/onboarding');
+        })
+        .catch(() => {
+          toast.error('Could not fetch user profile.');
+          navigate('/login');
+        });
+    });
+  }, []);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="text-center space-y-3">
+        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-muted-foreground text-sm">Completing sign-in...</p>
+      </div>
+    </div>
+  );
+}
