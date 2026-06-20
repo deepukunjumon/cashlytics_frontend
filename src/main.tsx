@@ -4,7 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 
 import { Toaster } from '@/components/ui/sonner';
 
-import App from './App.tsx';
+import App from './App';
 import './index.css';
 
 createRoot(document.getElementById('root')!).render(

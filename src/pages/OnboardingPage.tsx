@@ -8,7 +8,6 @@ import { Wallet, ArrowRight, ArrowLeft, CheckCircle2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
 import { completeOnboarding } from '@/api/accounts';
 import { useAuthStore } from '@/store/authStore';
 import { cn, getErrorMessage } from '@/lib/utils';

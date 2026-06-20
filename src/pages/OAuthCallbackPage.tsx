@@ -24,6 +24,7 @@ function OAuthCallbackPage() {
     const email                = searchParams.get('email');
     const currency             = searchParams.get('currency') ?? 'INR';
     const onboarding_completed = searchParams.get('onboarding_completed') === '1';
+    const role                 = (searchParams.get('role') as 'user' | 'superadmin') ?? 'user';
 
     if (!token || !id || !name || !email) {
       toast.error('Authentication failed. Please try again.');
@@ -31,7 +32,7 @@ function OAuthCallbackPage() {
       return;
     }
 
-    setAuth({ user: { id, name, email, mobile: null, currency, onboarding_completed }, token });
+    setAuth({ user: { id, name, email, mobile: null, currency, onboarding_completed, role, profile_picture: null }, token });
     toast.success('Logged in successfully.');
     navigate(onboarding_completed ? '/dashboard' : '/onboarding', { replace: true });
   // eslint-disable-next-line react-hooks/exhaustive-deps

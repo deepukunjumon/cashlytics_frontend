@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Plus, Trash2 } from 'lucide-react';
-import { FAB } from '@/components/FAB';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -53,7 +52,7 @@ function TransactionsPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as any,
     defaultValues: {
       type: 'expense',
       date: new Date().toISOString().split('T')[0],

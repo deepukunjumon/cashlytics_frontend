@@ -29,7 +29,7 @@ export default function SsoCallbackPage() {
       api.get('/profile', { headers: { Authorization: `Bearer ${token}` } })
         .then((res) => {
           const user = res.data?.data ?? res.data;
-          setAuth(user, token);
+          setAuth({ user, token });
           navigate(user.onboarding_completed ? '/dashboard' : '/onboarding');
         })
         .catch(() => {

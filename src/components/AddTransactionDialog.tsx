@@ -43,7 +43,7 @@ export function AddTransactionDialog({ open, onOpenChange, onCreated }: AddTrans
   const [loaded,     setLoaded]     = useState(false);
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as any,
     defaultValues: {
       type: 'expense',
       date: new Date().toISOString().split('T')[0],

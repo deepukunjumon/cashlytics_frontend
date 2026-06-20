@@ -33,7 +33,7 @@ function BudgetsPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   const { register, handleSubmit, setValue, reset, formState: { errors } } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as any,
   });
 
   const fetchBudgets = async () => {

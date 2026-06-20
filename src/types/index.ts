@@ -142,6 +142,7 @@ export interface AuditLog {
   old_values: Record<string, unknown> | null;
   new_values: Record<string, unknown> | null;
   ip_address: string | null;
+  description?: string;
   created_at: string;
 }
 
@@ -181,6 +182,7 @@ export interface ReportSummary {
 
 export interface PaginatedResponse<T> {
   data: T[];
+  total?: number;
   meta: {
     current_page: number;
     last_page: number;

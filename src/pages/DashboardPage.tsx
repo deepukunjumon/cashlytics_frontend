@@ -466,7 +466,7 @@ function DashboardPage() {
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(v: number) => formatCurrency(v, currency)}
+                    formatter={(v) => formatCurrency(Number(v), currency)}
                     contentStyle={{ borderRadius: "8px", fontSize: 12 }}
                   />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
@@ -506,7 +506,7 @@ function DashboardPage() {
                   cy="50%"
                   outerRadius={90}
                   paddingAngle={2}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }: any) => `${name ?? ''} ${((percent ?? 0) * 100).toFixed(0)}%`}
                   labelLine={{ strokeWidth: 1 }}
                 >
                   {allCategoryPieData.map((_, i) => (
@@ -518,7 +518,7 @@ function DashboardPage() {
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(v: number) => formatCurrency(v, currency)}
+                  formatter={(v) => formatCurrency(Number(v), currency)}
                   contentStyle={{ borderRadius: "8px", fontSize: 12 }}
                 />
                 <Legend wrapperStyle={{ fontSize: 12 }} />

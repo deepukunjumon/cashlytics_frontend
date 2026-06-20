@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Shield, Tag, Users, Wallet } from 'lucide-react';
 
-import { Button } from '@/components/ui/button';
 import { api } from '@/api/axios';
 import { getErrorMessage } from '@/lib/utils';
 

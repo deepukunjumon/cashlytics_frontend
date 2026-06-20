@@ -29,10 +29,16 @@ function buildCalendarDays(year: number, month: number): Date[] {
 }
 
 /* ── Internal: Trigger button (forwardRef so Radix asChild works) ── */
-const PickerTrigger = forwardRef<
-  HTMLButtonElement,
-  { label?: string; placeholder: string; hasValue: boolean; clearable?: boolean; onClear?: () => void; className?: string; [k: string]: unknown }
->(function PickerTrigger({ label, placeholder, hasValue, clearable, onClear, className, ...rest }, ref) {
+interface PickerTriggerProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  label?: string;
+  placeholder: string;
+  hasValue: boolean;
+  clearable?: boolean;
+  onClear?: () => void;
+}
+
+const PickerTrigger = forwardRef<HTMLButtonElement, PickerTriggerProps>(
+  function PickerTrigger({ label, placeholder, hasValue, clearable, onClear, className, ...rest }, ref) {
   return (
     <button
       ref={ref}
@@ -60,7 +66,8 @@ const PickerTrigger = forwardRef<
       )}
     </button>
   );
-});
+},
+);
 
 /* ── Internal: Calendar panel (day picker with month/year nav) ── */
 type CalView = 'days' | 'months' | 'years';
