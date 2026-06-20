@@ -302,7 +302,7 @@ function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Balance banner */}
-      <div className="rounded-2xl bg-gradient-to-br from-teal-800 via-teal-800 to-teal-900 px-6 py-7 text-white relative overflow-hidden">
+      <div className="rounded-2xl bg-primary px-6 py-7 text-white relative overflow-hidden">
         {/* decorative blobs */}
         <div className="pointer-events-none absolute -top-8 -right-8 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
         <div className="pointer-events-none absolute -bottom-6 -left-6 h-32 w-32 rounded-full bg-white/10 blur-2xl" />

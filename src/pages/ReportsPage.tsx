@@ -5,7 +5,7 @@ import { Download, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { DateRangePicker } from '@/components/ui/date-picker';
-import { downloadReportCsv, getReportSummary } from '@/api/reports';
+import { downloadReportCsv, downloadReportPdf, getReportSummary } from '@/api/reports';
 import { useAuthStore } from '@/store/authStore';
 import { formatCurrency, formatDate, formatTime, getErrorMessage } from '@/lib/utils';
 import type { ReportSummary } from '@/types';
@@ -32,15 +32,26 @@ function ReportsPage() {
     finally { setIsLoading(false); }
   };
 
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleCsvDownload = async () => {
     try {
       const blob = await downloadReportCsv(startDate, endDate);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `report_${startDate}_${endDate}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
+      downloadBlob(blob, `report_${startDate}_${endDate}.csv`);
+    } catch (e) { toast.error(getErrorMessage(e)); }
+  };
+
+  const handlePdfDownload = async () => {
+    try {
+      const blob = await downloadReportPdf(startDate, endDate);
+      downloadBlob(blob, `report_${startDate}_${endDate}.pdf`);
     } catch (e) { toast.error(getErrorMessage(e)); }
   };
 
@@ -86,18 +97,12 @@ function ReportsPage() {
 
           {/* Export buttons */}
           <div className="flex gap-3">
-            <Button variant="outline" className="gap-2" onClick={handleCsvDownload}>
+            <Button variant="outline" className="gap-2 cursor-pointer" onClick={handleCsvDownload}>
               <Download size={16} /> Export CSV
             </Button>
-            <a
-              href={`/api/reports/export/pdf?start_date=${startDate}&end_date=${endDate}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Button variant="outline" className="gap-2">
-                <FileText size={16} /> Export PDF
-              </Button>
-            </a>
+            <Button variant="outline" className="gap-2 cursor-pointer" onClick={handlePdfDownload}>
+              <FileText size={16} /> Export PDF
+            </Button>
           </div>
 
           {/* By category */}

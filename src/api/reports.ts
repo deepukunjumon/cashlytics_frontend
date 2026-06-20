@@ -8,8 +8,12 @@ export async function getReportSummary(startDate: string, endDate: string): Prom
   return response.data.data;
 }
 
-export function getReportPdfUrl(startDate: string, endDate: string): string {
-  return `/api/reports/export/pdf?start_date=${startDate}&end_date=${endDate}`;
+export async function downloadReportPdf(startDate: string, endDate: string): Promise<Blob> {
+  const response = await api.get('/reports/export/pdf', {
+    params: { start_date: startDate, end_date: endDate },
+    responseType: 'blob',
+  });
+  return response.data;
 }
 
 export async function downloadReportCsv(startDate: string, endDate: string): Promise<Blob> {
