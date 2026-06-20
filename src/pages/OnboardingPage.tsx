@@ -229,7 +229,7 @@ function OnboardingPage() {
                         render={({ field }) => (
                           <FormItem>
                             <FormControl>
-                              <div className="flex items-center gap-0 rounded-xl border border-input bg-muted/30 px-4 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 transition-all">
+                              <div className="flex items-center gap-0 rounded-xl border border-input bg-muted/30 px-4 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 transition-all overflow-hidden">
                                 <span className="shrink-0 text-xl font-semibold text-muted-foreground pr-2 border-r border-border">
                                   {currencyData.symbol}
                                 </span>
@@ -239,7 +239,7 @@ function OnboardingPage() {
                                   min="0"
                                   step="0.01"
                                   placeholder="0.00"
-                                  className="flex-1 bg-transparent py-4 pl-3 text-2xl font-bold tracking-tight outline-none placeholder:text-muted-foreground/40 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                  className="min-w-0 flex-1 bg-transparent py-4 pl-3 text-2xl font-bold tracking-tight outline-none placeholder:text-muted-foreground/40 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                                   {...field}
                                 />
                               </div>
@@ -261,7 +261,7 @@ function OnboardingPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-11 w-full gap-2"
+                  className="h-11 flex-1 gap-2"
                   onClick={() => setStep(1)}
                 >
                   <ArrowLeft className="size-4" />
@@ -270,7 +270,7 @@ function OnboardingPage() {
                 <Button
                   type="submit"
                   form="balance-form"
-                  className="h-11 w-full"
+                  className="h-11 flex-1"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? 'Setting up…' : 'Complete setup'}
