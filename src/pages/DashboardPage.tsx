@@ -331,14 +331,20 @@ function DashboardPage() {
           value={formatCurrency(stats?.monthly_income ?? 0, currency)}
           icon={<ArrowDownLeft size={18} className="text-emerald-600" />}
           color="bg-emerald-50 dark:bg-emerald-950"
-          onClick={() => navigate('/transactions?type=income')}
+          onClick={() => {
+            const m = selectedMonth || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+            navigate(`/transactions?type=income&month=${m}`);
+          }}
         />
         <StatCard
           label="Monthly Expense"
           value={formatCurrency(stats?.monthly_expense ?? 0, currency)}
           icon={<ArrowUpRight size={18} className="text-rose-600" />}
           color="bg-rose-50 dark:bg-rose-950"
-          onClick={() => navigate('/transactions?type=expense')}
+          onClick={() => {
+            const m = selectedMonth || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+            navigate(`/transactions?type=expense&month=${m}`);
+          }}
         />
       </div>
 

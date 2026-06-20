@@ -6,6 +6,8 @@ export interface AuditLogFilters {
   action?:     string;
   start_date?: string;
   end_date?:   string;
+  page?:       number;
+  per_page?:   number;
 }
 
 export async function getAuditLogs(filters?: AuditLogFilters): Promise<PaginatedResponse<AuditLog>> {

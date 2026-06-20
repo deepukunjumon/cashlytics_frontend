@@ -4,9 +4,10 @@ import { Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { api } from '@/api/axios';
 import { formatDate, getErrorMessage } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
 
 interface AdminUser {
   id:              string;
@@ -24,16 +25,38 @@ interface AdminUser {
 function SuperadminUsersPage() {
   const [users,     setUsers]     = useState<AdminUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [page,      setPage]      = useState(1);
+  const [perPage,   setPerPage]   = useState(20);
+  const [total,     setTotal]     = useState(0);
+  const [search,    setSearch]    = useState('');
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (p = page, pp = perPage, q = search) => {
+    setIsLoading(true);
     try {
-      const res = await api.get<{ data: { data: AdminUser[] } }>('/superadmin/users');
-      setUsers(res.data.data.data ?? res.data.data);
+      const params: Record<string, unknown> = { page: p, per_page: pp };
+      if (q) params.q = q;
+      const res = await api.get('/superadmin/users', { params });
+      const payload = res.data?.data;
+      setUsers(payload?.data ?? payload ?? []);
+      setTotal(payload?.total ?? 0);
+      setPage(p);
     } catch (e) { toast.error(getErrorMessage(e)); }
     finally { setIsLoading(false); }
   };
 
   useEffect(() => { void fetchUsers(); }, []);
+
+  const handleSearch = (q: string) => {
+    setSearch(q);
+    void fetchUsers(1, perPage, q);
+  };
+
+  const handlePageChange = (p: number) => void fetchUsers(p);
+
+  const handlePerPageChange = (pp: number) => {
+    setPerPage(pp);
+    void fetchUsers(1, pp);
+  };
 
   const handleDelete = async (id: string) => {
     try {
@@ -59,118 +82,100 @@ function SuperadminUsersPage() {
     } catch (e) { toast.error(getErrorMessage(e)); }
   };
 
-  const fmtDate = (d: string | null) => d ? formatDate(d) : 'Never';
+  const columns: DataTableColumn<AdminUser>[] = [
+    {
+      key: 'name',
+      header: 'User',
+      render: (u) => (
+        <div className="flex items-center gap-3">
+          {u.profile_picture ? (
+            <img src={u.profile_picture} alt={u.name} className="size-8 rounded-full object-cover shrink-0" />
+          ) : (
+            <div className="size-8 rounded-full bg-muted flex items-center justify-center shrink-0 text-sm font-semibold text-muted-foreground select-none">
+              {u.name.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="font-medium truncate">{u.name}</p>
+            <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'role',
+      header: 'Role',
+      render: (u) => u.role === 'superadmin'
+        ? <Badge variant="secondary" className="text-xs">Superadmin</Badge>
+        : <span className="text-muted-foreground capitalize">{u.role}</span>,
+    },
+    {
+      key: 'accounts_count',
+      header: 'Accounts',
+      render: (u) => <span className="text-muted-foreground">{u.accounts_count ?? '—'}</span>,
+    },
+    {
+      key: 'last_login_at',
+      header: 'Last Login',
+      render: (u) => <span className="text-muted-foreground text-xs">{u.last_login_at ? formatDate(u.last_login_at) : 'Never'}</span>,
+    },
+    {
+      key: 'deleted_at',
+      header: 'Status',
+      render: (u) => u.deleted_at
+        ? <Badge variant="destructive" className="text-xs">Inactive</Badge>
+        : <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-200">Active</Badge>,
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (u) => (
+        <div className="flex items-center gap-3">
+          <Switch
+            checked={!u.deleted_at}
+            onCheckedChange={() => u.deleted_at ? void handleRestore(u.id) : void handleToggle(u.id)}
+            disabled={u.role === 'superadmin'}
+            className="cursor-pointer data-[state=checked]:bg-emerald-500"
+            aria-label={u.deleted_at ? 'Activate user' : 'Deactivate user'}
+          />
+          {u.role !== 'superadmin' && !u.deleted_at && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive cursor-pointer"
+              title="Delete user"
+              onClick={(e) => { e.stopPropagation(); void handleDelete(u.id); }}
+            >
+              <Trash2 size={15} />
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">User Management</h1>
-        <p className="text-muted-foreground text-sm mt-1">{users.length} total users</p>
+        <p className="text-muted-foreground text-sm mt-1">{total} total users</p>
       </div>
 
-      <div className="rounded-lg border overflow-hidden">
-        <div className="overflow-x-auto">
-        <table className="w-full text-sm min-w-[640px]">
-          <thead className="bg-muted/50 text-muted-foreground sticky top-0 z-10">
-            <tr>
-              <th className="text-left px-4 py-3 font-medium">User</th>
-              <th className="text-left px-4 py-3 font-medium">Role</th>
-              <th className="text-left px-4 py-3 font-medium">Accounts</th>
-              <th className="text-left px-4 py-3 font-medium">Last Login</th>
-              <th className="text-left px-4 py-3 font-medium">Status</th>
-              <th className="text-left px-4 py-3 font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {isLoading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i}>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="size-8 rounded-full bg-muted animate-pulse shrink-0" />
-                      <div className="space-y-1.5 flex-1">
-                        <div className="h-3.5 bg-muted rounded animate-pulse w-24" />
-                        <div className="h-3 bg-muted rounded animate-pulse w-32" />
-                      </div>
-                    </div>
-                  </td>
-                  {Array.from({ length: 5 }).map((_, j) => (
-                    <td key={j} className="px-4 py-3">
-                      <div className="h-4 bg-muted rounded animate-pulse" />
-                    </td>
-                  ))}
-                </tr>
-              ))
-            ) : users.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="text-center text-muted-foreground py-12">No users found.</td>
-              </tr>
-            ) : (
-              users.map((u) => (
-                <tr key={u.id} className={`hover:bg-muted/30 transition-colors ${u.deleted_at ? 'opacity-60' : ''}`}>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      {u.profile_picture ? (
-                        <img
-                          src={u.profile_picture}
-                          alt={u.name}
-                          className="size-8 rounded-full object-cover shrink-0"
-                        />
-                      ) : (
-                        <div className="size-8 rounded-full bg-muted flex items-center justify-center shrink-0 text-sm font-semibold text-muted-foreground select-none">
-                          {u.name.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <div className="min-w-0">
-                        <p className="font-medium truncate">{u.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{u.email}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    {u.role === 'superadmin'
-                      ? <Badge variant="secondary" className="text-xs">Superadmin</Badge>
-                      : <span className="text-muted-foreground capitalize">{u.role}</span>
-                    }
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">{u.accounts_count ?? '—'}</td>
-                  <td className="px-4 py-3 text-muted-foreground text-xs">{fmtDate(u.last_login_at)}</td>
-                  <td className="px-4 py-3">
-                    {u.deleted_at
-                      ? <Badge variant="destructive" className="text-xs">Inactive</Badge>
-                      : <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-200">Active</Badge>
-                    }
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <Switch
-                        size="sm"
-                        checked={!u.deleted_at}
-                        onCheckedChange={() => u.deleted_at ? void handleRestore(u.id) : void handleToggle(u.id)}
-                        disabled={u.role === 'superadmin'}
-                        className="cursor-pointer data-[state=checked]:bg-emerald-500"
-                        aria-label={u.deleted_at ? 'Activate user' : 'Deactivate user'}
-                      />
-                      {u.role !== 'superadmin' && !u.deleted_at && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive cursor-pointer"
-                          title="Delete user"
-                          onClick={() => void handleDelete(u.id)}
-                        >
-                          <Trash2 size={15} />
-                        </Button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-        </div>
-      </div>
+      <DataTable
+        columns={columns}
+        data={users}
+        loading={isLoading}
+        skeletonRows={5}
+        emptyMessage="No users found."
+        searchValue={search}
+        onSearchChange={handleSearch}
+        searchPlaceholder="Search by name or email..."
+        page={page}
+        perPage={perPage}
+        total={total}
+        onPageChange={handlePageChange}
+        onPerPageChange={handlePerPageChange}
+      />
     </div>
   );
 }

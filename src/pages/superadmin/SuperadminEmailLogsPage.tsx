@@ -1,21 +1,23 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Download, Mail, Search, X } from 'lucide-react';
+import { Download, Mail, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DateRangePicker } from '@/components/ui/date-picker';
+import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { getEmailLogs, getEmailLog, exportEmailLogsCsv, exportEmailLogsPdf, type EmailLogFilters } from '@/api/superadmin';
 import { formatDate, getErrorMessage } from '@/lib/utils';
-import type { EmailLog, PaginatedResponse } from '@/types';
+import type { EmailLog } from '@/types';
 
 export default function SuperadminEmailLogsPage() {
-  const [data,    setData]    = useState<PaginatedResponse<EmailLog> | null>(null);
+  const [logs,    setLogs]    = useState<EmailLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [page,    setPage]    = useState(1);
+  const [perPage, setPerPage] = useState(20);
+  const [total,   setTotal]   = useState(0);
   const [search,  setSearch]  = useState('');
   const [filters, setFilters] = useState<EmailLogFilters>({});
 
@@ -23,33 +25,46 @@ export default function SuperadminEmailLogsPage() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
 
-  const load = async (p = 1) => {
+  const load = async (p = page, pp = perPage, q = search) => {
     setLoading(true);
     try {
-      const params: EmailLogFilters = { ...filters, page: p, per_page: 20 };
-      if (search) params.q = search;
+      const params: EmailLogFilters = { ...filters, page: p, per_page: pp };
+      if (q) params.q = q;
       const result = await getEmailLogs(params);
-      setData(result);
+      setLogs(result.data ?? []);
+      setTotal((result as any).total ?? result.meta?.total ?? 0);
       setPage(p);
     } catch (e) { toast.error(getErrorMessage(e)); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(1); }, []);
+
+  const handleSearch = (q: string) => {
+    setSearch(q);
+    void load(1, perPage, q);
+  };
+
+  const handlePageChange = (p: number) => void load(p);
+
+  const handlePerPageChange = (pp: number) => {
+    setPerPage(pp);
+    void load(1, pp);
+  };
 
   const handleFilter = () => void load(1);
 
   const handleClear = () => {
     setSearch('');
     setFilters({});
-    void load(1);
+    void load(1, perPage, '');
   };
 
-  const openDetail = async (id: string) => {
+  const openDetail = async (row: EmailLog) => {
     setDetailLoading(true);
     setDetailOpen(true);
     try {
-      setDetailLog(await getEmailLog(id));
+      setDetailLog(await getEmailLog(row.id));
     } catch (e) { toast.error(getErrorMessage(e)); }
     finally { setDetailLoading(false); }
   };
@@ -67,8 +82,7 @@ export default function SuperadminEmailLogsPage() {
     try {
       const params: EmailLogFilters = { ...filters };
       if (search) params.q = search;
-      const blob = await exportEmailLogsCsv(params);
-      downloadBlob(blob, 'email_logs.csv');
+      downloadBlob(await exportEmailLogsCsv(params), 'email_logs.csv');
     } catch (e) { toast.error(getErrorMessage(e)); }
   };
 
@@ -76,15 +90,30 @@ export default function SuperadminEmailLogsPage() {
     try {
       const params: EmailLogFilters = { ...filters };
       if (search) params.q = search;
-      const blob = await exportEmailLogsPdf(params);
-      downloadBlob(blob, 'email_logs.pdf');
+      downloadBlob(await exportEmailLogsPdf(params), 'email_logs.pdf');
     } catch (e) { toast.error(getErrorMessage(e)); }
   };
 
-  const logs  = data?.data ?? [];
-  const total = (data as any)?.total ?? 0;
+  const hasFilters = filters.status || filters.template || filters.channel || filters.start_date || filters.end_date;
 
-  const hasFilters = search || filters.status || filters.template || filters.channel || filters.start_date || filters.end_date;
+  const columns: DataTableColumn<EmailLog>[] = [
+    { key: 'recipient', header: 'Recipient', render: (log) => <span className="font-medium">{log.recipient}</span> },
+    { key: 'subject', header: 'Subject', className: 'max-w-[200px]', render: (log) => <span className="text-muted-foreground truncate block max-w-[200px]">{log.subject}</span> },
+    {
+      key: 'template', header: 'Template',
+      render: (log) => log.template
+        ? <Badge variant="secondary" className="text-xs capitalize">{log.template.replace(/_/g, ' ')}</Badge>
+        : <span className="text-muted-foreground">—</span>,
+    },
+    { key: 'channel', header: 'Channel', render: (log) => <span className="capitalize text-muted-foreground">{log.channel}</span> },
+    {
+      key: 'status', header: 'Status',
+      render: (log) => log.status === 'sent'
+        ? <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-200">Sent</Badge>
+        : <Badge variant="destructive" className="text-xs">Failed</Badge>,
+    },
+    { key: 'sent_at', header: 'Sent At', render: (log) => <span className="text-muted-foreground text-xs">{formatDate(log.sent_at)}</span> },
+  ];
 
   return (
     <div className="space-y-6">
@@ -96,21 +125,8 @@ export default function SuperadminEmailLogsPage() {
       {/* Filters */}
       <div className="rounded-xl border bg-card p-4 space-y-3">
         <div className="flex flex-wrap gap-3 items-end">
-          <div className="relative flex-1 min-w-[180px] max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              className="pl-9"
-              placeholder="Search recipient or subject..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleFilter()}
-            />
-          </div>
-
           <Select value={filters.status ?? ''} onValueChange={(v) => setFilters((f) => ({ ...f, status: v || undefined }))}>
-            <SelectTrigger className="w-32">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
+            <SelectTrigger className="w-32"><SelectValue placeholder="Status" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="sent">Sent</SelectItem>
               <SelectItem value="failed">Failed</SelectItem>
@@ -118,9 +134,7 @@ export default function SuperadminEmailLogsPage() {
           </Select>
 
           <Select value={filters.template ?? ''} onValueChange={(v) => setFilters((f) => ({ ...f, template: v || undefined }))}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Template" />
-            </SelectTrigger>
+            <SelectTrigger className="w-40"><SelectValue placeholder="Template" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="welcome">Welcome</SelectItem>
               <SelectItem value="password_changed">Password Changed</SelectItem>
@@ -131,9 +145,7 @@ export default function SuperadminEmailLogsPage() {
           </Select>
 
           <Select value={filters.channel ?? ''} onValueChange={(v) => setFilters((f) => ({ ...f, channel: v || undefined }))}>
-            <SelectTrigger className="w-32">
-              <SelectValue placeholder="Channel" />
-            </SelectTrigger>
+            <SelectTrigger className="w-32"><SelectValue placeholder="Channel" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="email">Email</SelectItem>
               <SelectItem value="sms">SMS</SelectItem>
@@ -169,78 +181,24 @@ export default function SuperadminEmailLogsPage() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="rounded-lg border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[700px]">
-            <thead className="bg-muted/50 text-muted-foreground sticky top-0 z-10">
-              <tr>
-                <th className="text-left px-4 py-3 font-medium">Recipient</th>
-                <th className="text-left px-4 py-3 font-medium">Subject</th>
-                <th className="text-left px-4 py-3 font-medium">Template</th>
-                <th className="text-left px-4 py-3 font-medium">Channel</th>
-                <th className="text-left px-4 py-3 font-medium">Status</th>
-                <th className="text-left px-4 py-3 font-medium">Sent At</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {loading ? (
-                Array.from({ length: 8 }).map((_, i) => (
-                  <tr key={i}>
-                    {Array.from({ length: 6 }).map((_, j) => (
-                      <td key={j} className="px-4 py-3">
-                        <div className="h-4 bg-muted rounded animate-pulse" />
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : logs.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="text-center py-16">
-                    <Mail className="mx-auto size-10 text-muted-foreground/30 mb-3" />
-                    <p className="text-sm text-muted-foreground">No email logs found.</p>
-                  </td>
-                </tr>
-              ) : (
-                logs.map((log) => (
-                  <tr
-                    key={log.id}
-                    className="hover:bg-muted/30 transition-colors cursor-pointer"
-                    onClick={() => void openDetail(log.id)}
-                  >
-                    <td className="px-4 py-3 font-medium">{log.recipient}</td>
-                    <td className="px-4 py-3 text-muted-foreground max-w-[200px] truncate">{log.subject}</td>
-                    <td className="px-4 py-3">
-                      {log.template ? (
-                        <Badge variant="secondary" className="text-xs capitalize">{log.template.replace(/_/g, ' ')}</Badge>
-                      ) : <span className="text-muted-foreground">—</span>}
-                    </td>
-                    <td className="px-4 py-3 capitalize text-muted-foreground">{log.channel}</td>
-                    <td className="px-4 py-3">
-                      {log.status === 'sent'
-                        ? <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-200">Sent</Badge>
-                        : <Badge variant="destructive" className="text-xs">Failed</Badge>
-                      }
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs">{formatDate(log.sent_at)}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Pagination */}
-      {total > 20 && (
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">{total} total logs</p>
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => void load(page - 1)}>Previous</Button>
-            <Button size="sm" variant="outline" disabled={logs.length < 20} onClick={() => void load(page + 1)}>Next</Button>
-          </div>
-        </div>
-      )}
+      <DataTable
+        columns={columns}
+        data={logs}
+        loading={loading}
+        skeletonRows={8}
+        minWidth="700px"
+        emptyIcon={<Mail className="size-10 text-muted-foreground/30" />}
+        emptyMessage="No email logs found."
+        onRowClick={openDetail}
+        searchValue={search}
+        onSearchChange={handleSearch}
+        searchPlaceholder="Search recipient or subject..."
+        page={page}
+        perPage={perPage}
+        total={total}
+        onPageChange={handlePageChange}
+        onPerPageChange={handlePerPageChange}
+      />
 
       {/* Detail dialog */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>

@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Plus, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Plus, Search, Trash2, X } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { DatePicker } from '@/components/ui/date-picker';
+import { DatePicker, MonthPicker } from '@/components/ui/date-picker';
 import {
   Select,
   SelectContent,
@@ -23,7 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { createTransaction, deleteTransaction, getTransactions } from '@/api/transactions';
+import { createTransaction, deleteTransaction, exportTransactionsCsv, getTransactions, type TransactionFilters } from '@/api/transactions';
 import { getAccounts } from '@/api/accounts';
 import { getCategories } from '@/api/categories';
 import { useAuthStore } from '@/store/authStore';
@@ -53,6 +53,15 @@ function TransactionsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [filterType, setFilterType] = useState(searchParams.get('type') ?? '');
+  const [filterMonth, setFilterMonth] = useState(searchParams.get('month') ?? '');
+
+  // Pagination + search
+  const [page,    setPage]    = useState(1);
+  const [perPage, setPerPage] = useState(20);
+  const [total,   setTotal]   = useState(0);
+  const [search,  setSearch]  = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const isFirstRender = useRef(true);
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema) as any,
@@ -64,30 +73,54 @@ function TransactionsPage() {
   });
   const txType = watch('type');
 
-  const loadTransactions = async (typeFilter?: string) => {
+  const loadTransactions = async (p = page, pp = perPage, q = search, typeF = filterType, monthF = filterMonth) => {
     setIsLoading(true);
     try {
-      const filters = typeFilter ? { type: typeFilter as any } : undefined;
-      const [txs, accs, cats] = await Promise.all([getTransactions(filters), getAccounts(), getCategories()]);
-      setTransactions(Array.isArray(txs) ? txs : (txs as any).data ?? []);
-      setAccounts(accs);
-      setCategories(cats);
+      const filters: TransactionFilters = { page: p, per_page: pp };
+      if (typeF) filters.type = typeF as any;
+      if (monthF) filters.month = monthF;
+      if (q) (filters as any).q = q;
+
+      const [txResult, accs, cats] = await Promise.all([
+        getTransactions(filters),
+        accounts.length ? Promise.resolve(accounts) : getAccounts(),
+        categories.length ? Promise.resolve(categories) : getCategories(),
+      ]);
+
+      const txData = Array.isArray(txResult) ? txResult : (txResult as any).data ?? [];
+      const txTotal = Array.isArray(txResult) ? txResult.length : (txResult as any).total ?? 0;
+
+      setTransactions(txData);
+      setTotal(txTotal);
+      setPage(p);
+      if (!accounts.length) setAccounts(accs);
+      if (!categories.length) setCategories(cats);
     } catch (e) { toast.error(getErrorMessage(e)); }
     finally { setIsLoading(false); }
   };
 
   useEffect(() => {
-    void loadTransactions(filterType || undefined);
-  }, [filterType]);
+    void loadTransactions(1, perPage, search, filterType, filterMonth);
+  }, [filterType, filterMonth]);
+
+  // Debounced search
+  useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      void loadTransactions(1, perPage, search, filterType);
+    }, 400);
+    return () => clearTimeout(debounceRef.current);
+  }, [search]);
 
   const onSubmit = async (data: FormValues) => {
     setIsSaving(true);
     try {
-      const tx = await createTransaction({ ...data, category_id: data.category_id || undefined });
-      setTransactions((prev) => [tx, ...prev]);
+      await createTransaction({ ...data, category_id: data.category_id || undefined });
       setDialogOpen(false);
       reset({ type: 'expense', date: new Date().toISOString().split('T')[0] });
       toast.success('Transaction added.');
+      void loadTransactions(1);
     } catch (e) { toast.error(getErrorMessage(e)); }
     finally { setIsSaving(false); }
   };
@@ -95,40 +128,111 @@ function TransactionsPage() {
   const handleDelete = async (id: string) => {
     try {
       await deleteTransaction(id);
-      setTransactions((prev) => prev.filter((t) => t.id !== id));
       toast.success('Transaction deleted.');
+      void loadTransactions();
     } catch (e) { toast.error(getErrorMessage(e)); }
   };
+
+  const handleExport = async () => {
+    try {
+      const filters: TransactionFilters = {};
+      if (filterType) filters.type = filterType as any;
+      if (filterMonth) filters.month = filterMonth;
+      if (search) (filters as any).q = search;
+      const blob = await exportTransactionsCsv(filters);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `transactions${filterMonth ? `_${filterMonth}` : ''}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) { toast.error(getErrorMessage(e)); }
+  };
+
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Transactions</h1>
-          {filterType && (
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Showing <span className="font-medium capitalize text-foreground">{filterType}</span> transactions
-              <button
-                onClick={() => { setFilterType(''); setSearchParams({}); }}
-                className="ml-2 text-xs text-primary hover:underline cursor-pointer"
-              >
-                Clear filter
-              </button>
-            </p>
-          )}
-        </div>
+        <h1 className="text-2xl font-bold">Transactions</h1>
         <Button className="gap-2" onClick={() => setDialogOpen(true)}>
           <Plus size={16} /> Add Transaction
         </Button>
       </div>
 
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[160px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            className="pl-9 pr-8"
+            placeholder="Search by note or category..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
+        <Select
+          value={filterType}
+          onValueChange={(v) => { setFilterType(v); setSearchParams((prev) => { const p = new URLSearchParams(prev); if (v) p.set('type', v); else p.delete('type'); return p; }); }}
+        >
+          <SelectTrigger className="w-32">
+            <SelectValue placeholder="All types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="income">Income</SelectItem>
+            <SelectItem value="expense">Expense</SelectItem>
+            <SelectItem value="transfer">Transfer</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <MonthPicker
+          value={filterMonth}
+          onChange={(v) => { setFilterMonth(v); setSearchParams((prev) => { const p = new URLSearchParams(prev); if (v) p.set('month', v); else p.delete('month'); return p; }); }}
+          placeholder="All months"
+          clearable
+          disableFuture
+          className="w-36"
+        />
+
+        {(filterType || filterMonth) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-muted-foreground"
+            onClick={() => { setFilterType(''); setFilterMonth(''); setSearchParams({}); }}
+          >
+            <X size={14} /> Clear
+          </Button>
+        )}
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 ml-auto"
+          onClick={handleExport}
+        >
+          <Download size={14} /> Export CSV
+        </Button>
+      </div>
+
+      {/* Transaction list */}
       <div className="rounded-xl border bg-card overflow-hidden">
         {isLoading ? (
           <div className="p-6 space-y-3">
-            {[1,2,3,4].map(i => <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />)}
+            {[1,2,3,4,5].map(i => <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />)}
           </div>
         ) : transactions.length === 0 ? (
-          <div className="p-14 text-center text-sm text-muted-foreground">No transactions yet.</div>
+          <div className="p-14 text-center text-sm text-muted-foreground">No transactions found.</div>
         ) : (
           <div className="divide-y">
             {transactions.map((t) => (
@@ -149,7 +253,7 @@ function TransactionsPage() {
                   </span>
                   <button
                     onClick={() => void handleDelete(t.id)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive cursor-pointer"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -160,6 +264,39 @@ function TransactionsPage() {
         )}
       </div>
 
+      {/* Pagination */}
+      {total > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <span>{total} transaction{total !== 1 ? 's' : ''}</span>
+            <span>·</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs">Rows</span>
+              <Select value={String(perPage)} onValueChange={(v) => { setPerPage(Number(v)); void loadTransactions(1, Number(v)); }}>
+                <SelectTrigger className="h-7 w-[60px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[10, 20, 50, 100].map((n) => (
+                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground mr-1">Page {page} of {totalPages}</span>
+            <Button size="sm" variant="outline" className="h-7 w-7 p-0" disabled={page <= 1} onClick={() => void loadTransactions(page - 1)}>
+              <ChevronLeft size={14} />
+            </Button>
+            <Button size="sm" variant="outline" className="h-7 w-7 p-0" disabled={page >= totalPages} onClick={() => void loadTransactions(page + 1)}>
+              <ChevronRight size={14} />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Add dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -172,7 +309,7 @@ function TransactionsPage() {
                   key={t}
                   type="button"
                   onClick={() => setValue('type', t)}
-                  className={`py-1.5 rounded-md text-sm font-medium capitalize transition-all
+                  className={`py-1.5 rounded-md text-sm font-medium capitalize transition-all cursor-pointer
                     ${txType === t ? 'bg-background shadow text-foreground' : 'text-muted-foreground'}`}
                 >
                   {t}

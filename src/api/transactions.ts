@@ -19,6 +19,7 @@ export interface TransactionFilters {
   start_date?: string;
   end_date?: string;
   month?: string;
+  page?: number;
   per_page?: number;
 }
 
@@ -39,4 +40,9 @@ export async function updateTransaction(id: string, payload: Partial<StoreTransa
 
 export async function deleteTransaction(id: string): Promise<void> {
   await api.delete(`/transactions/${id}`);
+}
+
+export async function exportTransactionsCsv(filters?: TransactionFilters): Promise<Blob> {
+  const response = await api.get('/transactions/export/csv', { params: filters, responseType: 'blob' });
+  return response.data;
 }
