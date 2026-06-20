@@ -1,7 +1,18 @@
 import { type ReactNode, useState } from 'react';
-import { Menu, Shield } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Menu, Moon, Shield, Sun, User } from 'lucide-react';
 import { SuperadminSidebar } from './SuperadminSidebar';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { useAuthStore } from '@/store/authStore';
+import { useThemeStore } from '@/store/themeStore';
 
 interface SuperadminLayoutProps {
   children: ReactNode;
@@ -9,6 +20,13 @@ interface SuperadminLayoutProps {
 
 export function SuperadminLayout({ children }: SuperadminLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { user } = useAuthStore();
+  const { theme, toggleTheme } = useThemeStore();
+  const navigate = useNavigate();
+
+  const initials = user?.name
+    ? user.name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
+    : 'U';
 
   return (
     <div className="min-h-screen bg-background">
@@ -42,6 +60,34 @@ export function SuperadminLayout({ children }: SuperadminLayoutProps) {
           <span className="text-muted-foreground text-xs ml-1 hidden sm:block truncate">
             Manage system-wide settings, users, and configuration
           </span>
+
+          <div className="flex-1" />
+
+          <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme" className="shrink-0">
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-2 rounded-full outline-none ring-2 ring-transparent focus:ring-ring transition-all cursor-pointer shrink-0">
+                <Avatar className="h-8 w-8">
+                  {user?.profile_picture && <AvatarImage src={user.profile_picture} alt={user.name} />}
+                  <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                </Avatar>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <div className="px-3 py-2">
+                <p className="text-sm font-medium truncate">{user?.name}</p>
+                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer">
+                <User size={14} className="mr-2" />
+                Profile & Settings
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </header>
 
         <main className="flex-1 p-4 sm:p-6 overflow-auto">
