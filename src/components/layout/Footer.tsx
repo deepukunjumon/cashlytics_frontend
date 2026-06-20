@@ -12,7 +12,7 @@ export function Footer() {
 
   return (
     <footer className="text-muted-foreground/60 text-[10px] text-center py-3 shrink-0">
-      &copy; {new Date().getFullYear()} Finance Tracker{version && ` · v${version}`}
+      &copy; {new Date().getFullYear()} Cashlytics{version && ` · v${version}`}
     </footer>
   );
 }

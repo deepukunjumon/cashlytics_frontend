@@ -136,7 +136,7 @@ export function Sidebar() {
                 <TrendingUp size={15} className="text-primary-foreground" />
               </div>
               <span className="text-[var(--sidebar-foreground)] font-bold text-sm tracking-tight truncate">
-                FinanceTracker
+                Cashlytics
               </span>
             </div>
           )}

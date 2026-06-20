@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-export const TOKEN_STORAGE_KEY = 'finance_token';
-export const USER_STORAGE_KEY = 'finance_user';
+export const TOKEN_STORAGE_KEY = 'cashlytics_token';
+export const USER_STORAGE_KEY = 'cashlytics_user';
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
