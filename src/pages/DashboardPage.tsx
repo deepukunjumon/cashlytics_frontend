@@ -302,8 +302,11 @@ function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Balance banner */}
-      <div className="rounded-2xl bg-primary px-6 py-7 text-white relative overflow-hidden">
-        {/* decorative blobs */}
+      <div className="rounded-2xl bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 dark:from-slate-700 dark:via-slate-800 dark:to-slate-900 px-6 py-7 text-white relative overflow-hidden">
+        <div
+          className="absolute inset-0 opacity-[0.05]"
+          style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'20\' height=\'20\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0h20v20H0z\' fill=\'none\'/%3E%3Cpath d=\'M0 10h20M10 0v20\' stroke=\'%23fff\' stroke-width=\'.5\'/%3E%3C/svg%3E")' }}
+        />
         <div className="pointer-events-none absolute -top-8 -right-8 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
         <div className="pointer-events-none absolute -bottom-6 -left-6 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
         <p className="text-sm text-white/60 mb-1 relative">Total balance</p>
