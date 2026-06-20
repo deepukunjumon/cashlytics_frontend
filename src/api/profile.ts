@@ -28,3 +28,7 @@ export async function updateProfile(payload: UpdateProfilePayload | FormData): P
 export async function updatePassword(payload: UpdatePasswordPayload): Promise<void> {
   await api.put('/profile/password', payload);
 }
+
+export async function deactivateAccount(): Promise<void> {
+  await api.delete('/profile');
+}
