@@ -96,15 +96,15 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div className="rounded-xl border bg-card p-5 flex items-center gap-4">
+    <div className="rounded-xl border bg-card p-3 sm:p-5 flex items-center gap-2.5 sm:gap-4">
       <div
-        className={`flex size-10 items-center justify-center rounded-lg ${color}`}
+        className={`flex size-8 sm:size-10 items-center justify-center rounded-lg shrink-0 ${color}`}
       >
         {icon}
       </div>
-      <div>
+      <div className="min-w-0">
         <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
-        <p className="text-xl font-bold tracking-tight">{value}</p>
+        <p className="text-sm sm:text-xl font-bold tracking-tight truncate">{value}</p>
       </div>
     </div>
   );
@@ -320,7 +320,7 @@ function DashboardPage() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <StatCard
           label="Monthly Income"
           value={formatCurrency(stats?.monthly_income ?? 0, currency)}
