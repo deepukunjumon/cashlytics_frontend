@@ -7,6 +7,7 @@ import {
   CreditCard,
   Download,
   Folder,
+  MoreVertical,
   PiggyBank,
   Plus,
   TrendingUp,
@@ -27,6 +28,12 @@ import {
 } from "recharts";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { MonthPicker } from "@/components/ui/date-picker";
 import { AddAccountDialog } from "@/components/AddAccountDialog";
 import { ChartEmptyState } from "@/components/ChartEmptyState";
@@ -173,6 +180,40 @@ async function downloadCardAsImage(container: HTMLElement, filename: string) {
   }
 }
 
+const DASHBOARD_SECTIONS_KEY = 'cashlytics_dashboard_sections';
+
+interface DashboardSections {
+  accounts: boolean;
+  recent_transactions: boolean;
+  monthly_trend: boolean;
+  expense_by_category: boolean;
+  all_by_category: boolean;
+}
+
+const DEFAULT_SECTIONS: DashboardSections = {
+  accounts: true,
+  recent_transactions: true,
+  monthly_trend: true,
+  expense_by_category: true,
+  all_by_category: true,
+};
+
+const SECTION_LABELS: Record<keyof DashboardSections, string> = {
+  accounts: 'My Accounts',
+  monthly_trend: 'Income vs Expense Chart',
+  expense_by_category: 'Expense by Category',
+  all_by_category: 'Transactions by Category',
+  recent_transactions: 'Recent Transactions',
+};
+
+function loadSections(): DashboardSections {
+  try {
+    const stored = localStorage.getItem(DASHBOARD_SECTIONS_KEY);
+    if (stored) return { ...DEFAULT_SECTIONS, ...JSON.parse(stored) };
+  } catch {}
+  return DEFAULT_SECTIONS;
+}
+
 function DashboardPage() {
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
@@ -181,6 +222,7 @@ function DashboardPage() {
   const [chartLoading, setChartLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState("");
+  const [sections, setSections] = useState<DashboardSections>(loadSections);
   const currency = user?.currency ?? "INR";
 
   const barChartRef = useRef<HTMLDivElement>(null);
@@ -201,6 +243,12 @@ function DashboardPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const toggleSection = (key: keyof DashboardSections) => {
+    const updated = { ...sections, [key]: !sections[key] };
+    setSections(updated);
+    localStorage.setItem(DASHBOARD_SECTIONS_KEY, JSON.stringify(updated));
+  };
 
   const handleMonthChange = async (v: string) => {
     setSelectedMonth(v);
@@ -279,6 +327,31 @@ function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* Dashboard header with customize menu */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" aria-label="Customize dashboard">
+              <MoreVertical size={16} />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56 p-3 space-y-2.5" onCloseAutoFocus={(e) => e.preventDefault()}>
+            <p className="text-xs font-semibold text-muted-foreground mb-1">Show on dashboard</p>
+            {(Object.keys(SECTION_LABELS) as (keyof DashboardSections)[]).map((key) => (
+              <label key={key} className="flex items-center gap-2.5 cursor-pointer group">
+                <Checkbox
+                  checked={sections[key]}
+                  onCheckedChange={() => toggleSection(key)}
+                  className="cursor-pointer"
+                />
+                <span className="text-sm group-hover:text-foreground transition-colors">{SECTION_LABELS[key]}</span>
+              </label>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
       {/* Balance banner */}
       <div className="rounded-2xl bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 dark:from-slate-700 dark:via-slate-800 dark:to-slate-900 px-6 py-7 text-white relative overflow-hidden">
         <div
@@ -322,7 +395,7 @@ function DashboardPage() {
       </div>
 
       {/* Accounts */}
-      <div>
+      {sections.accounts && <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-semibold">My Accounts</h2>
           <Button
@@ -357,10 +430,10 @@ function DashboardPage() {
             ))}
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Month picker shared across charts */}
-      <div className="flex items-center justify-between">
+      {(sections.monthly_trend || sections.expense_by_category || sections.all_by_category) && <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold">Charts & Insights</h2>
         <MonthPicker
           value={selectedMonth}
@@ -370,12 +443,12 @@ function DashboardPage() {
           disableFuture
           className="h-8 w-40 text-xs"
         />
-      </div>
+      </div>}
 
       {/* Charts row */}
-      <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 transition-opacity ${chartLoading ? 'opacity-50 pointer-events-none' : ''}`}>
+      {(sections.monthly_trend || sections.expense_by_category) && <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 transition-opacity ${chartLoading ? 'opacity-50 pointer-events-none' : ''}`}>
         {/* Income vs Expense trend */}
-        <div ref={barChartRef} className="rounded-xl border bg-card p-5">
+        {sections.monthly_trend && <div ref={barChartRef} className="rounded-xl border bg-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold">Income vs Expense</h3>
             {trendData.length > 0 && (
@@ -423,10 +496,10 @@ function DashboardPage() {
               </BarChart>
             </ResponsiveContainer>
           )}
-        </div>
+        </div>}
 
         {/* Expense by category — modern donut + breakdown */}
-        <div ref={expensePieRef} className="rounded-xl border bg-card p-5">
+        {sections.expense_by_category && <div ref={expensePieRef} className="rounded-xl border bg-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold">Expense by Category</h3>
             {expensePieData.length > 0 && (
@@ -515,11 +588,11 @@ function DashboardPage() {
               </div>
             </div>
           )}
-        </div>
-      </div>
+        </div>}
+      </div>}
 
       {/* Transactions by Category — Income & Expense */}
-      <div ref={categoryPieRef} className={`rounded-xl border bg-card p-5 transition-opacity ${chartLoading ? 'opacity-50 pointer-events-none' : ''}`}>
+      {sections.all_by_category && <div ref={categoryPieRef} className={`rounded-xl border bg-card p-5 transition-opacity ${chartLoading ? 'opacity-50 pointer-events-none' : ''}`}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold">Transactions by Category</h3>
           {hasAnyCategoryData && (
@@ -651,10 +724,10 @@ function DashboardPage() {
             </div>
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Recent transactions */}
-      <div className="rounded-xl border bg-card p-5">
+      {sections.recent_transactions && <div className="rounded-xl border bg-card p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold">Recent Transactions</h3>
           <Button
@@ -697,7 +770,7 @@ function DashboardPage() {
             ))}
           </div>
         )}
-      </div>
+      </div>}
 
       <AddAccountDialog
         open={dialogOpen}
