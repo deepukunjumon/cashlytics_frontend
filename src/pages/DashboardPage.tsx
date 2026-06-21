@@ -242,16 +242,23 @@ function DashboardPage() {
       value: Number(e.total),
     })) ?? [];
 
-  const allCategoryPieData = (() => {
+  const incomeByCategoryData = (() => {
     if (!stats?.all_by_category) return [];
-    const map: Record<string, { name: string; value: number }> = {};
-    stats.all_by_category.forEach((entry) => {
-      const name = entry.category?.name ?? "Uncategorised";
-      if (!map[name]) map[name] = { name, value: 0 };
-      map[name].value += Number(entry.total);
-    });
-    return Object.values(map).sort((a, b) => b.value - a.value);
+    return stats.all_by_category
+      .filter((e) => e.type === 'income')
+      .map((e) => ({ name: e.category?.name ?? 'Uncategorised', value: Number(e.total) }))
+      .sort((a, b) => b.value - a.value);
   })();
+
+  const expenseByCategoryData = (() => {
+    if (!stats?.all_by_category) return [];
+    return stats.all_by_category
+      .filter((e) => e.type === 'expense')
+      .map((e) => ({ name: e.category?.name ?? 'Uncategorised', value: Number(e.total) }))
+      .sort((a, b) => b.value - a.value);
+  })();
+
+  const hasAnyCategoryData = incomeByCategoryData.length > 0 || expenseByCategoryData.length > 0;
 
   if (isLoading) {
     return (
@@ -511,11 +518,11 @@ function DashboardPage() {
         </div>
       </div>
 
-      {/* Transactions by Category */}
+      {/* Transactions by Category — Income & Expense */}
       <div ref={categoryPieRef} className={`rounded-xl border bg-card p-5 transition-opacity ${chartLoading ? 'opacity-50 pointer-events-none' : ''}`}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold">Transactions by Category</h3>
-          {allCategoryPieData.length > 0 && (
+          {hasAnyCategoryData && (
             <Button
               data-download-hide
               variant="outline"
@@ -527,78 +534,120 @@ function DashboardPage() {
             </Button>
           )}
         </div>
-        {allCategoryPieData.length === 0 ? (
+        {!hasAnyCategoryData ? (
           <ChartEmptyState message="No transaction data this month" />
         ) : (
-          <div>
-            <div className="flex flex-col sm:flex-row items-center gap-6">
-              {/* Donut */}
-              <div className="relative shrink-0">
-                <ResponsiveContainer width={180} height={180}>
-                  <PieChart>
-                    <Pie
-                      data={allCategoryPieData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={56}
-                      outerRadius={80}
-                      paddingAngle={3}
-                      strokeWidth={0}
-                    >
-                      {allCategoryPieData.map((_, i) => (
-                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(v) => formatCurrency(Number(v), currency)}
-                      contentStyle={{ borderRadius: "8px", fontSize: 12, border: "1px solid var(--border)" }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <p className="text-[10px] text-muted-foreground">Total</p>
-                  <p className="text-sm font-bold">
-                    {formatCurrency(allCategoryPieData.reduce((s, d) => s + d.value, 0), currency)}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">{allCategoryPieData.length} categories</p>
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] gap-6">
+            {/* Income section */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="size-2 rounded-full bg-emerald-500" />
+                <p className="text-xs font-semibold text-emerald-600">Income</p>
+                <span className="text-xs text-muted-foreground ml-auto tabular-nums">
+                  {formatCurrency(incomeByCategoryData.reduce((s, d) => s + d.value, 0), currency)}
+                </span>
               </div>
-
-              {/* Breakdown list */}
-              <div className="flex-1 w-full space-y-2">
-                {(() => {
-                  const total = allCategoryPieData.reduce((s, d) => s + d.value, 0);
-                  return allCategoryPieData.map((d, i) => {
-                    const pct = total > 0 ? (d.value / total) * 100 : 0;
-                    return (
-                      <div key={d.name} className="flex items-center gap-2.5">
-                        <div
-                          className="size-2.5 rounded-full shrink-0"
-                          style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
-                        />
-                        <span className="text-xs flex-1 truncate">{d.name}</span>
-                        <span className="text-xs font-medium tabular-nums">
-                          {formatCurrency(d.value, currency)}
-                        </span>
-                        <div className="w-14 h-1.5 rounded-full bg-muted overflow-hidden shrink-0">
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: `${pct}%`,
-                              backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
-                            }}
-                          />
-                        </div>
-                        <span className="text-[10px] text-muted-foreground w-8 text-right tabular-nums">
-                          {pct.toFixed(0)}%
-                        </span>
+              {incomeByCategoryData.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-6">No income this month</p>
+              ) : (
+                <>
+                  <div className="flex justify-center mb-3">
+                    <div className="relative">
+                      <ResponsiveContainer width={130} height={130}>
+                        <PieChart>
+                          <Pie data={incomeByCategoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={40} outerRadius={58} paddingAngle={3} strokeWidth={0}>
+                            {incomeByCategoryData.map((_, i) => (
+                              <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(v) => formatCurrency(Number(v), currency)} contentStyle={{ borderRadius: "8px", fontSize: 11, border: "1px solid var(--border)" }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <p className="text-[9px] text-muted-foreground">Total</p>
+                        <p className="text-xs font-bold">{formatCurrency(incomeByCategoryData.reduce((s, d) => s + d.value, 0), currency)}</p>
                       </div>
-                    );
-                  });
-                })()}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {(() => {
+                      const total = incomeByCategoryData.reduce((s, d) => s + d.value, 0);
+                      return incomeByCategoryData.map((d, i) => {
+                        const pct = total > 0 ? (d.value / total) * 100 : 0;
+                        return (
+                          <div key={d.name} className="flex items-center gap-2">
+                            <div className="size-2 rounded-full shrink-0" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                            <span className="text-xs flex-1 truncate">{d.name}</span>
+                            <span className="text-[11px] font-medium tabular-nums">{formatCurrency(d.value, currency)}</span>
+                            <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden shrink-0">
+                              <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                            </div>
+                            <span className="text-[10px] text-muted-foreground w-7 text-right tabular-nums">{pct.toFixed(0)}%</span>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Divider */}
+            <div className="hidden md:block bg-border" />
+            <hr className="md:hidden border-border" />
+
+            {/* Expense section */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="size-2 rounded-full bg-rose-500" />
+                <p className="text-xs font-semibold text-rose-600">Expense</p>
+                <span className="text-xs text-muted-foreground ml-auto tabular-nums">
+                  {formatCurrency(expenseByCategoryData.reduce((s, d) => s + d.value, 0), currency)}
+                </span>
               </div>
+              {expenseByCategoryData.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-6">No expenses this month</p>
+              ) : (
+                <>
+                  <div className="flex justify-center mb-3">
+                    <div className="relative">
+                      <ResponsiveContainer width={130} height={130}>
+                        <PieChart>
+                          <Pie data={expenseByCategoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={40} outerRadius={58} paddingAngle={3} strokeWidth={0}>
+                            {expenseByCategoryData.map((_, i) => (
+                              <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(v) => formatCurrency(Number(v), currency)} contentStyle={{ borderRadius: "8px", fontSize: 11, border: "1px solid var(--border)" }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <p className="text-[9px] text-muted-foreground">Total</p>
+                        <p className="text-xs font-bold">{formatCurrency(expenseByCategoryData.reduce((s, d) => s + d.value, 0), currency)}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {(() => {
+                      const total = expenseByCategoryData.reduce((s, d) => s + d.value, 0);
+                      return expenseByCategoryData.map((d, i) => {
+                        const pct = total > 0 ? (d.value / total) * 100 : 0;
+                        return (
+                          <div key={d.name} className="flex items-center gap-2">
+                            <div className="size-2 rounded-full shrink-0" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                            <span className="text-xs flex-1 truncate">{d.name}</span>
+                            <span className="text-[11px] font-medium tabular-nums">{formatCurrency(d.value, currency)}</span>
+                            <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden shrink-0">
+                              <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                            </div>
+                            <span className="text-[10px] text-muted-foreground w-7 text-right tabular-nums">{pct.toFixed(0)}%</span>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
