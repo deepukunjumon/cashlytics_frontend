@@ -53,6 +53,22 @@ export function AddTransactionDialog({ open, onOpenChange, onCreated }: AddTrans
 
   const txType = watch('type');
 
+  const freshDefaults = () => ({
+    type: 'expense' as const,
+    account_id: '',
+    category_id: '',
+    amount: undefined as any,
+    date: new Date().toISOString().split('T')[0],
+    time: new Date().toTimeString().slice(0, 5),
+    note: '',
+  });
+
+  useEffect(() => {
+    if (open) {
+      reset(freshDefaults());
+    }
+  }, [open]);
+
   useEffect(() => {
     if (!open || loaded) return;
     void (async () => {
@@ -71,7 +87,6 @@ export function AddTransactionDialog({ open, onOpenChange, onCreated }: AddTrans
       const tx = await createTransaction(data);
       onCreated?.(tx);
       onOpenChange(false);
-      reset({ type: 'expense', date: new Date().toISOString().split('T')[0] });
       toast.success('Transaction added.');
     } catch (e) { toast.error(getErrorMessage(e)); }
     finally { setIsSaving(false); }

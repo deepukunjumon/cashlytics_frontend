@@ -73,6 +73,20 @@ function TransactionsPage() {
   });
   const txType = watch('type');
 
+  const freshDefaults = () => ({
+    type: 'expense' as const,
+    account_id: '',
+    category_id: '',
+    amount: undefined as any,
+    date: new Date().toISOString().split('T')[0],
+    time: new Date().toTimeString().slice(0, 5),
+    note: '',
+  });
+
+  useEffect(() => {
+    if (dialogOpen) reset(freshDefaults());
+  }, [dialogOpen]);
+
   const loadTransactions = async (p = page, pp = perPage, q = search, typeF = filterType, monthF = filterMonth) => {
     setIsLoading(true);
     try {
@@ -118,7 +132,6 @@ function TransactionsPage() {
     try {
       await createTransaction({ ...data, category_id: data.category_id || undefined });
       setDialogOpen(false);
-      reset({ type: 'expense', date: new Date().toISOString().split('T')[0] });
       toast.success('Transaction added.');
       void loadTransactions(1);
     } catch (e) { toast.error(getErrorMessage(e)); }

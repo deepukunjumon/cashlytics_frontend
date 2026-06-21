@@ -151,61 +151,26 @@ function AccountCard({
   );
 }
 
-function inlineStyles(source: SVGElement, target: SVGElement) {
-  const computed = window.getComputedStyle(source);
-  const important = ['fill', 'stroke', 'stroke-width', 'font-size', 'font-family', 'font-weight', 'text-anchor', 'dominant-baseline', 'opacity', 'visibility', 'display'];
-  important.forEach((prop) => {
-    const val = computed.getPropertyValue(prop);
-    if (val) (target as unknown as HTMLElement).style.setProperty(prop, val);
-  });
-  const srcChildren = source.children;
-  const tgtChildren = target.children;
-  for (let i = 0; i < srcChildren.length; i++) {
-    if (srcChildren[i] instanceof SVGElement && tgtChildren[i] instanceof SVGElement) {
-      inlineStyles(srcChildren[i] as SVGElement, tgtChildren[i] as SVGElement);
-    }
-  }
-}
-
-function downloadChartAsImage(container: HTMLElement, filename: string) {
-  const svg = container.querySelector("svg");
-  if (!svg) return;
-
-  const clone = svg.cloneNode(true) as SVGSVGElement;
-  const { width, height } = svg.getBoundingClientRect();
-  clone.setAttribute("width", String(width));
-  clone.setAttribute("height", String(height));
-  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-
-  inlineStyles(svg as unknown as SVGElement, clone);
-
-  // Remove any Recharts tooltip/hover layers
-  clone.querySelectorAll(".recharts-tooltip-wrapper").forEach((el) => el.remove());
-
-  const serializer = new XMLSerializer();
-  const svgStr = serializer.serializeToString(clone);
-  const svgBlob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
-  const url = URL.createObjectURL(svgBlob);
-
-  const img = new Image();
-  img.onload = () => {
-    const canvas = document.createElement("canvas");
-    const scale = 2;
-    canvas.width = width * scale;
-    canvas.height = height * scale;
-    const ctx = canvas.getContext("2d")!;
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.scale(scale, scale);
-    ctx.drawImage(img, 0, 0, width, height);
-    URL.revokeObjectURL(url);
-
-    const a = document.createElement("a");
+async function downloadCardAsImage(container: HTMLElement, filename: string) {
+  const { toPng } = await import('html-to-image');
+  try {
+    const dataUrl = await toPng(container, {
+      pixelRatio: 2,
+      backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--background').trim()
+        ? (document.documentElement.classList.contains('dark') ? '#1a1a1a' : '#ffffff')
+        : '#ffffff',
+      filter: (node) => {
+        if (node instanceof HTMLElement && node.hasAttribute('data-download-hide')) return false;
+        return true;
+      },
+    });
+    const a = document.createElement('a');
     a.download = filename;
-    a.href = canvas.toDataURL("image/png");
+    a.href = dataUrl;
     a.click();
-  };
-  img.src = url;
+  } catch {
+    // fallback silently
+  }
 }
 
 function DashboardPage() {
@@ -218,6 +183,7 @@ function DashboardPage() {
   const [selectedMonth, setSelectedMonth] = useState("");
   const currency = user?.currency ?? "INR";
 
+  const barChartRef = useRef<HTMLDivElement>(null);
   const expensePieRef = useRef<HTMLDivElement>(null);
   const categoryPieRef = useRef<HTMLDivElement>(null);
 
@@ -402,8 +368,21 @@ function DashboardPage() {
       {/* Charts row */}
       <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 transition-opacity ${chartLoading ? 'opacity-50 pointer-events-none' : ''}`}>
         {/* Income vs Expense trend */}
-        <div className="rounded-xl border bg-card p-5">
-          <h3 className="text-sm font-semibold mb-4">Income vs Expense</h3>
+        <div ref={barChartRef} className="rounded-xl border bg-card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold">Income vs Expense</h3>
+            {trendData.length > 0 && (
+              <Button
+                data-download-hide
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs h-7 cursor-pointer"
+                onClick={() => barChartRef.current && downloadCardAsImage(barChartRef.current, "income_vs_expense.png")}
+              >
+                <Download size={13} /> Download
+              </Button>
+            )}
+          </div>
           {trendData.length === 0 ? (
             <ChartEmptyState />
           ) : (
@@ -431,7 +410,7 @@ function DashboardPage() {
                   content={<CustomTooltip prefix="₹" />}
                   cursor={{ fill: "var(--muted)", opacity: 0.5 }}
                 />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
                 <Bar dataKey="Income" fill="#22c55e" radius={[6, 6, 0, 0]} />
                 <Bar dataKey="Expense" fill="#ef4444" radius={[6, 6, 0, 0]} />
               </BarChart>
@@ -439,16 +418,17 @@ function DashboardPage() {
           )}
         </div>
 
-        {/* Expense by category — donut */}
-        <div className="rounded-xl border bg-card p-5">
+        {/* Expense by category — modern donut + breakdown */}
+        <div ref={expensePieRef} className="rounded-xl border bg-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold">Expense by Category</h3>
             {expensePieData.length > 0 && (
               <Button
+                data-download-hide
                 variant="outline"
                 size="sm"
                 className="gap-1.5 text-xs h-7 cursor-pointer"
-                onClick={() => expensePieRef.current && downloadChartAsImage(expensePieRef.current, "expense_by_category.png")}
+                onClick={() => expensePieRef.current && downloadCardAsImage(expensePieRef.current, "expense_by_category.png")}
               >
                 <Download size={13} /> Download
               </Button>
@@ -457,49 +437,91 @@ function DashboardPage() {
           {expensePieData.length === 0 ? (
             <ChartEmptyState message="No expense data this month" />
           ) : (
-            <div ref={expensePieRef}>
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie
-                    data={expensePieData}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={75}
-                    paddingAngle={3}
-                  >
-                    {expensePieData.map((_, i) => (
-                      <Cell
-                        key={i}
-                        fill={CHART_COLORS[i % CHART_COLORS.length]}
-                        stroke="none"
+            <div>
+              {/* Donut */}
+              <div className="flex justify-center mb-4">
+                <div className="relative">
+                  <ResponsiveContainer width={160} height={160}>
+                    <PieChart>
+                      <Pie
+                        data={expensePieData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={52}
+                        outerRadius={72}
+                        paddingAngle={3}
+                        strokeWidth={0}
+                      >
+                        {expensePieData.map((_, i) => (
+                          <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(v) => formatCurrency(Number(v), currency)}
+                        contentStyle={{ borderRadius: "8px", fontSize: 12, border: "1px solid var(--border)" }}
                       />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(v) => formatCurrency(Number(v), currency)}
-                    contentStyle={{ borderRadius: "8px", fontSize: 12 }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                </PieChart>
-              </ResponsiveContainer>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <p className="text-[10px] text-muted-foreground">Total</p>
+                    <p className="text-sm font-bold">
+                      {formatCurrency(expensePieData.reduce((s, d) => s + d.value, 0), currency)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Category breakdown list */}
+              <div className="space-y-2.5">
+                {(() => {
+                  const total = expensePieData.reduce((s, d) => s + d.value, 0);
+                  return expensePieData.map((d, i) => {
+                    const pct = total > 0 ? (d.value / total) * 100 : 0;
+                    return (
+                      <div key={d.name} className="flex items-center gap-3">
+                        <div
+                          className="size-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
+                        />
+                        <span className="text-xs flex-1 truncate">{d.name}</span>
+                        <span className="text-xs font-medium tabular-nums">
+                          {formatCurrency(d.value, currency)}
+                        </span>
+                        <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden shrink-0">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${pct}%`,
+                              backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
+                            }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-muted-foreground w-8 text-right tabular-nums">
+                          {pct.toFixed(0)}%
+                        </span>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* All transactions by category pie chart */}
-      <div className={`rounded-xl border bg-card p-5 transition-opacity ${chartLoading ? 'opacity-50 pointer-events-none' : ''}`}>
+      {/* Transactions by Category */}
+      <div ref={categoryPieRef} className={`rounded-xl border bg-card p-5 transition-opacity ${chartLoading ? 'opacity-50 pointer-events-none' : ''}`}>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold">All Transactions by Category</h3>
+          <h3 className="text-sm font-semibold">Transactions by Category</h3>
           {allCategoryPieData.length > 0 && (
             <Button
+              data-download-hide
               variant="outline"
               size="sm"
               className="gap-1.5 text-xs h-7 cursor-pointer"
-              onClick={() => categoryPieRef.current && downloadChartAsImage(categoryPieRef.current, "transactions_by_category.png")}
+              onClick={() => categoryPieRef.current && downloadCardAsImage(categoryPieRef.current, "transactions_by_category.png")}
             >
               <Download size={13} /> Download
             </Button>
@@ -508,35 +530,76 @@ function DashboardPage() {
         {allCategoryPieData.length === 0 ? (
           <ChartEmptyState message="No transaction data this month" />
         ) : (
-          <div ref={categoryPieRef}>
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie
-                  data={allCategoryPieData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={90}
-                  paddingAngle={2}
-                  label={({ name, percent }: any) => `${name ?? ''} ${((percent ?? 0) * 100).toFixed(0)}%`}
-                  labelLine={{ strokeWidth: 1 }}
-                >
-                  {allCategoryPieData.map((_, i) => (
-                    <Cell
-                      key={i}
-                      fill={CHART_COLORS[i % CHART_COLORS.length]}
-                      stroke="none"
+          <div>
+            <div className="flex flex-col sm:flex-row items-center gap-6">
+              {/* Donut */}
+              <div className="relative shrink-0">
+                <ResponsiveContainer width={180} height={180}>
+                  <PieChart>
+                    <Pie
+                      data={allCategoryPieData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={56}
+                      outerRadius={80}
+                      paddingAngle={3}
+                      strokeWidth={0}
+                    >
+                      {allCategoryPieData.map((_, i) => (
+                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(v) => formatCurrency(Number(v), currency)}
+                      contentStyle={{ borderRadius: "8px", fontSize: 12, border: "1px solid var(--border)" }}
                     />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(v) => formatCurrency(Number(v), currency)}
-                  contentStyle={{ borderRadius: "8px", fontSize: 12 }}
-                />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-              </PieChart>
-            </ResponsiveContainer>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <p className="text-[10px] text-muted-foreground">Total</p>
+                  <p className="text-sm font-bold">
+                    {formatCurrency(allCategoryPieData.reduce((s, d) => s + d.value, 0), currency)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">{allCategoryPieData.length} categories</p>
+                </div>
+              </div>
+
+              {/* Breakdown list */}
+              <div className="flex-1 w-full space-y-2">
+                {(() => {
+                  const total = allCategoryPieData.reduce((s, d) => s + d.value, 0);
+                  return allCategoryPieData.map((d, i) => {
+                    const pct = total > 0 ? (d.value / total) * 100 : 0;
+                    return (
+                      <div key={d.name} className="flex items-center gap-2.5">
+                        <div
+                          className="size-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
+                        />
+                        <span className="text-xs flex-1 truncate">{d.name}</span>
+                        <span className="text-xs font-medium tabular-nums">
+                          {formatCurrency(d.value, currency)}
+                        </span>
+                        <div className="w-14 h-1.5 rounded-full bg-muted overflow-hidden shrink-0">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${pct}%`,
+                              backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
+                            }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-muted-foreground w-8 text-right tabular-nums">
+                          {pct.toFixed(0)}%
+                        </span>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
           </div>
         )}
       </div>
