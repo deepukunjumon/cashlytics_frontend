@@ -330,7 +330,7 @@ function DashboardPage() {
       {/* Dashboard header with customize menu */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Dashboard</h1>
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" aria-label="Customize dashboard">
               <MoreVertical size={16} />
@@ -338,6 +338,19 @@ function DashboardPage() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 p-3 space-y-2.5" onCloseAutoFocus={(e) => e.preventDefault()}>
             <p className="text-xs font-semibold text-muted-foreground mb-1">Show on dashboard</p>
+            <label className="flex items-center gap-2.5 cursor-pointer group border-b border-border pb-2 mb-1">
+              <Checkbox
+                checked={Object.values(sections).every(Boolean)}
+                onCheckedChange={(checked) => {
+                  const val = !!checked;
+                  const updated = Object.fromEntries(Object.keys(sections).map((k) => [k, val])) as DashboardSections;
+                  setSections(updated);
+                  localStorage.setItem(DASHBOARD_SECTIONS_KEY, JSON.stringify(updated));
+                }}
+                className="cursor-pointer"
+              />
+              <span className="text-sm font-medium group-hover:text-foreground transition-colors">Select All</span>
+            </label>
             {(Object.keys(SECTION_LABELS) as (keyof DashboardSections)[]).map((key) => (
               <label key={key} className="flex items-center gap-2.5 cursor-pointer group">
                 <Checkbox
