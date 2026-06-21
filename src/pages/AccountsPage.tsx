@@ -165,8 +165,7 @@ function AccountsPage() {
             return (
               <div
                 key={account.id}
-                className={`rounded-xl border bg-card p-5 flex flex-col gap-4 hover:shadow-sm transition-all cursor-default ${account.is_archived ? 'opacity-60' : ''}`}
-                style={accentColor ? { borderLeftColor: accentColor, borderLeftWidth: 3 } : undefined}
+                className={`rounded-xl border bg-card p-5 flex flex-col gap-4 hover:shadow-sm transition-shadow ${account.is_archived ? 'opacity-60' : ''}`}
               >
                 <div className="flex items-start justify-between">
                   <div
@@ -182,6 +181,9 @@ function AccountsPage() {
                     {account.is_archived && (
                       <span className="text-xs text-muted-foreground border rounded-full px-2 py-0.5">Archived</span>
                     )}
+                    <span className="text-xs text-muted-foreground rounded-full border px-2 py-0.5">
+                      {config.label}
+                    </span>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-7 w-7">
@@ -209,7 +211,6 @@ function AccountsPage() {
                 <div>
                   <p className="text-sm text-muted-foreground mb-0.5">{account.name}</p>
                   <p className="text-xl font-bold tracking-tight">{formatCurrency(account.balance, currency)}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{config.label}</p>
                 </div>
               </div>
             );
