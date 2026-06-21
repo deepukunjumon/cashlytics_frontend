@@ -76,9 +76,9 @@ export function Navbar() {
             <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
           </div>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => navigate('/settings')}>
+          <DropdownMenuItem onClick={() => navigate('/profile')}>
             <User size={14} className="mr-2" />
-            Profile & Settings
+            Profile
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">

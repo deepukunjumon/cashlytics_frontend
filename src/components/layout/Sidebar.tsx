@@ -11,6 +11,7 @@ import {
   Shield,
   Tag,
   TrendingUp,
+  User,
   Wallet,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -49,7 +50,8 @@ const insightsNav = [
   { to: '/notifications', label: 'Notifications', icon: Bell },
 ];
 
-const settingsNav = [
+const accountNav = [
+  { to: '/profile',  label: 'Profile',  icon: User },
   { to: '/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -172,7 +174,7 @@ export function Sidebar() {
           <NavSection label="Menu"      items={mainNav}     isOpen={isOpen} onNavigate={closeMobile} />
           <NavSection label="Planning"  items={planningNav} isOpen={isOpen} onNavigate={closeMobile} />
           <NavSection label="Insights"  items={insightsNav} isOpen={isOpen} onNavigate={closeMobile} />
-          <NavSection label="Account"   items={settingsNav} isOpen={isOpen} onNavigate={closeMobile} />
+          <NavSection label="Account"   items={accountNav} isOpen={isOpen} onNavigate={closeMobile} />
 
           {user?.role === 'superadmin' && (
             <div>

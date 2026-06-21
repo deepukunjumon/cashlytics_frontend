@@ -32,3 +32,23 @@ export async function updatePassword(payload: UpdatePasswordPayload): Promise<vo
 export async function deactivateAccount(): Promise<void> {
   await api.delete('/profile');
 }
+
+export interface NotificationPreferences {
+  email: boolean;
+  sms: boolean;
+  push: boolean;
+  budget_alerts: boolean;
+  transaction_alerts: boolean;
+  weekly_summary: boolean;
+  bill_reminders: boolean;
+}
+
+export async function getNotificationPreferences(): Promise<NotificationPreferences> {
+  const response = await api.get<ApiResponse<NotificationPreferences>>('/profile/notification-preferences');
+  return response.data.data;
+}
+
+export async function updateNotificationPreferences(prefs: NotificationPreferences): Promise<NotificationPreferences> {
+  const response = await api.put<ApiResponse<NotificationPreferences>>('/profile/notification-preferences', prefs);
+  return response.data.data;
+}

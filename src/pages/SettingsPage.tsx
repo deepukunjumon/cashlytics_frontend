@@ -1,332 +1,283 @@
-import { useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Camera, ChevronDown, KeyRound, Mail, Phone, Shield, Trash2, User as UserIcon } from 'lucide-react';
-import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
-import 'react-image-crop/dist/ReactCrop.css';
+import { Bell, Download, Info, Lock, Moon, Palette, Sun } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { deactivateAccount, updatePassword, updateProfile } from '@/api/profile';
 import { useAuthStore } from '@/store/authStore';
+import { useThemeStore } from '@/store/themeStore';
+import { getPublicSettings } from '@/api/settings';
+import { getAccounts } from '@/api/accounts';
 import { getCurrencySymbol, getErrorMessage } from '@/lib/utils';
+import { updateProfile, getNotificationPreferences, updateNotificationPreferences, type NotificationPreferences } from '@/api/profile';
+import { exportTransactionsCsv } from '@/api/transactions';
+import type { Account } from '@/types';
 
 const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD', 'AUD', 'CAD', 'JPY', 'CHF', 'CNY', 'MYR'];
+const DATE_FORMATS = [
+  { value: 'd MMM yyyy', label: '21 Jun 2026' },
+  { value: 'dd/MM/yyyy', label: '21/06/2026' },
+  { value: 'MM/dd/yyyy', label: '06/21/2026' },
+  { value: 'yyyy-MM-dd', label: '2026-06-21' },
+];
+const WEEK_STARTS = [
+  { value: 'sunday', label: 'Sunday' },
+  { value: 'monday', label: 'Monday' },
+];
 
-function getCroppedBlob(image: HTMLImageElement, crop: PixelCrop): Promise<Blob> {
-  const canvas = document.createElement('canvas');
-  const scaleX = image.naturalWidth / image.width;
-  const scaleY = image.naturalHeight / image.height;
-  const outputSize = crop.width * scaleX;
-  canvas.width = outputSize;
-  canvas.height = outputSize;
-  const ctx = canvas.getContext('2d')!;
-  ctx.drawImage(
-    image,
-    crop.x * scaleX,
-    crop.y * scaleY,
-    crop.width * scaleX,
-    crop.height * scaleY,
-    0, 0,
-    outputSize,
-    outputSize,
-  );
-  return new Promise((resolve) => canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.9));
+const APP_PREFS_KEY = 'cashlytics_app_prefs';
+
+interface AppPrefs {
+  date_format: string;
+  default_account_id: string;
+  week_start: string;
 }
 
+function loadAppPrefs(): AppPrefs {
+  try {
+    const stored = localStorage.getItem(APP_PREFS_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return { date_format: 'd MMM yyyy', default_account_id: '', week_start: 'sunday' };
+}
+
+const DEFAULT_NOTIF_PREFS: NotificationPreferences = {
+  email: true, sms: false, push: true,
+  budget_alerts: true, transaction_alerts: true,
+  weekly_summary: false, bill_reminders: true,
+};
+
 function SettingsPage() {
-  const navigate = useNavigate();
-  const { user, updateUser, clearAuth } = useAuthStore();
-  const [name,     setName]     = useState(user?.name ?? '');
-  const [mobile,   setMobile]   = useState(user?.mobile ?? '');
+  const { user, updateUser } = useAuthStore();
+  const { theme, setTheme } = useThemeStore();
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [appVersion, setAppVersion] = useState('');
+  const [appName, setAppName] = useState('');
+
+  const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIF_PREFS);
+  const [notifLoading, setNotifLoading] = useState(true);
+  const [appPrefs, setAppPrefs] = useState<AppPrefs>(loadAppPrefs);
   const [currency, setCurrency] = useState(user?.currency ?? 'INR');
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isSavingCurrency, setIsSavingCurrency] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
-  // Password
-  const [showPwSection, setShowPwSection] = useState(false);
-  const [currentPw,  setCurrentPw]  = useState('');
-  const [newPw,      setNewPw]      = useState('');
-  const [confirmPw,  setConfirmPw]  = useState('');
-  const [isSavingPw, setIsSavingPw] = useState(false);
+  useEffect(() => {
+    void getPublicSettings().then((s) => { setAppVersion(s.app_version); setAppName(s.app_name); });
+    void getAccounts().then(setAccounts).catch(() => {});
+    void getNotificationPreferences()
+      .then(setNotifPrefs)
+      .catch(() => {})
+      .finally(() => setNotifLoading(false));
+  }, []);
 
-  // Avatar crop
-  const [cropDialogOpen, setCropDialogOpen] = useState(false);
-  const [imgSrc,  setImgSrc]  = useState('');
-  const [crop,    setCrop]    = useState<Crop>();
-  const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
-  const imgRef = useRef<HTMLImageElement>(null);
-  const [isSavingAvatar, setIsSavingAvatar] = useState(false);
-
-  // Deactivate
-  const [deactivateOpen, setDeactivateOpen] = useState(false);
-  const [deactivateText, setDeactivateText] = useState('');
-  const [isDeactivating, setIsDeactivating] = useState(false);
-
-  const initials = user?.name?.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase() ?? 'U';
-
-  const handleSaveProfile = async () => {
-    setIsSavingProfile(true);
+  const handleNotifToggle = async (key: keyof NotificationPreferences, value: boolean) => {
+    const updated = { ...notifPrefs, [key]: value };
+    setNotifPrefs(updated);
     try {
-      const updated = await updateProfile({ name, mobile: mobile || undefined, currency });
+      await updateNotificationPreferences(updated);
+      toast.success('Preference updated.');
+    } catch (e) {
+      setNotifPrefs(notifPrefs);
+      toast.error(getErrorMessage(e));
+    }
+  };
+
+  const updateAppPref = (key: keyof AppPrefs, value: string) => {
+    const updated = { ...appPrefs, [key]: value };
+    setAppPrefs(updated);
+    localStorage.setItem(APP_PREFS_KEY, JSON.stringify(updated));
+  };
+
+  const handleCurrencyChange = async (c: string) => {
+    setCurrency(c);
+    setIsSavingCurrency(true);
+    try {
+      const updated = await updateProfile({ name: user?.name ?? '', currency: c });
       updateUser(updated);
-      toast.success('Profile updated.');
+      toast.success('Currency updated.');
     } catch (e) { toast.error(getErrorMessage(e)); }
-    finally { setIsSavingProfile(false); }
+    finally { setIsSavingCurrency(false); }
   };
 
-  const handleSavePassword = async () => {
-    if (newPw !== confirmPw) { toast.error('Passwords do not match.'); return; }
-    setIsSavingPw(true);
+  const handleExportData = async () => {
+    setIsExporting(true);
     try {
-      await updatePassword({ current_password: currentPw, password: newPw, password_confirmation: confirmPw });
-      setCurrentPw(''); setNewPw(''); setConfirmPw('');
-      setShowPwSection(false);
-      toast.success('Password updated.');
+      const blob = await exportTransactionsCsv({});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'cashlytics_data_export.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Data exported.');
     } catch (e) { toast.error(getErrorMessage(e)); }
-    finally { setIsSavingPw(false); }
+    finally { setIsExporting(false); }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => { setImgSrc(reader.result as string); setCropDialogOpen(true); };
-    reader.readAsDataURL(file);
-    e.target.value = '';
-  };
-
-  const onImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const { width, height } = e.currentTarget;
-    const percentCrop = centerCrop(makeAspectCrop({ unit: '%', width: 80 }, 1, width, height), width, height);
-    setCrop(percentCrop);
-    const pixelCrop: PixelCrop = {
-      unit: 'px',
-      x: (percentCrop.x / 100) * width,
-      y: (percentCrop.y / 100) * height,
-      width: (percentCrop.width / 100) * width,
-      height: (percentCrop.height / 100) * height,
-    };
-    setCompletedCrop(pixelCrop);
-  };
-
-  const handleSaveAvatar = async () => {
-    if (!imgRef.current || !completedCrop) return;
-    setIsSavingAvatar(true);
-    try {
-      const blob = await getCroppedBlob(imgRef.current, completedCrop);
-      const formData = new FormData();
-      formData.append('name',    name);
-      formData.append('currency', currency);
-      formData.append('profile_picture', blob, 'profile.jpg');
-      const updated = await updateProfile(formData);
-      updateUser(updated);
-      setCropDialogOpen(false);
-      toast.success('Profile picture updated.');
-    } catch (e) { toast.error(getErrorMessage(e)); }
-    finally { setIsSavingAvatar(false); }
-  };
-
-  const handleDeactivate = async () => {
-    setIsDeactivating(true);
-    try {
-      await deactivateAccount();
-      clearAuth();
-      navigate('/login');
-      toast.success('Account deactivated.');
-    } catch (e) { toast.error(getErrorMessage(e)); }
-    finally { setIsDeactivating(false); }
-  };
+  const notifItems: { key: keyof NotificationPreferences; label: string; description: string }[] = [
+    { key: 'email',              label: 'Email Notifications',   description: 'Receive notifications via email' },
+    { key: 'sms',                label: 'SMS Notifications',     description: 'Receive notifications via SMS' },
+    { key: 'push',               label: 'Push Notifications',    description: 'Browser push notifications' },
+    { key: 'budget_alerts',      label: 'Budget Alerts',         description: 'Alert when budget limit is approaching or exceeded' },
+    { key: 'transaction_alerts', label: 'Transaction Alerts',    description: 'Alert for large or unusual transactions' },
+    { key: 'weekly_summary',     label: 'Weekly Summary',        description: 'Receive a weekly spending summary email' },
+    { key: 'bill_reminders',     label: 'Bill Reminders',        description: 'Reminders for upcoming recurring bills' },
+  ];
 
   return (
     <div className="space-y-6 max-w-2xl">
       <h1 className="text-2xl font-bold">Settings</h1>
 
-      {/* Profile header card */}
-      <div className="rounded-xl border bg-card overflow-hidden">
-        <div className="h-24 bg-muted" />
-        <div className="px-6 pb-6 -mt-12 relative z-10">
-          <div className="flex items-end gap-4">
-            <div className="relative">
-              <Avatar className="h-20 w-20 border-4 border-card shadow-md">
-                {user?.profile_picture && <AvatarImage src={user.profile_picture} />}
-                <AvatarFallback className="text-xl bg-muted">{initials}</AvatarFallback>
-              </Avatar>
-              <label className="absolute -bottom-0.5 -right-0.5 bg-primary text-primary-foreground rounded-full p-1.5 cursor-pointer hover:bg-primary/90 transition-colors shadow-sm">
-                <Camera size={12} />
-                <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
-              </label>
-            </div>
-            <div className="pb-1">
-              <p className="text-lg font-semibold">{user?.name}</p>
-              <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                <Mail size={13} />
-                {user?.email}
-              </p>
-            </div>
-          </div>
+      {/* Notification Preferences */}
+      <div className="rounded-xl border bg-card p-6 space-y-5">
+        <div className="flex items-center gap-2">
+          <Bell size={16} className="text-muted-foreground" />
+          <h2 className="text-base font-semibold">Notification Preferences</h2>
         </div>
-      </div>
-
-      {/* Personal information */}
-      <div className="rounded-xl border bg-card p-6 space-y-4">
-        <div className="flex items-center gap-2 mb-1">
-          <UserIcon size={16} className="text-muted-foreground" />
-          <h2 className="text-base font-semibold">Personal Information</h2>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <Label>Full Name</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
-          </div>
-          <div className="space-y-1">
-            <Label>Mobile</Label>
-            <div className="relative">
-              <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-              <Input value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="9876543210" className="pl-9" />
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-1">
-          <Label>Preferred Currency</Label>
-          <Select value={currency} onValueChange={setCurrency}>
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CURRENCIES.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {getCurrencySymbol(c)} {c}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="pt-1">
-          <Button onClick={handleSaveProfile} disabled={isSavingProfile}>
-            {isSavingProfile ? 'Saving...' : 'Save Changes'}
-          </Button>
-        </div>
-      </div>
-
-      {/* Security — Change Password (collapsible) */}
-      <div className="rounded-xl border bg-card overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setShowPwSection((v) => !v)}
-          className="w-full flex items-center justify-between p-6 cursor-pointer hover:bg-muted/30 transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <KeyRound size={16} className="text-muted-foreground" />
-            <h2 className="text-base font-semibold">Change Password</h2>
-          </div>
-          <ChevronDown
-            size={16}
-            className={`text-muted-foreground transition-transform ${showPwSection ? 'rotate-180' : ''}`}
-          />
-        </button>
-
-        {showPwSection && (
-          <div className="px-6 pb-6 space-y-4 border-t pt-4">
-            <div className="space-y-1">
-              <Label>Current Password</Label>
-              <PasswordInput value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label>New Password</Label>
-                <PasswordInput value={newPw} onChange={(e) => setNewPw(e.target.value)} />
+        {notifLoading ? (
+          <div className="space-y-4">
+            {[1,2,3,4].map((i) => (
+              <div key={i} className="flex items-center justify-between">
+                <div className="space-y-1.5 flex-1">
+                  <div className="h-3.5 bg-muted rounded animate-pulse w-32" />
+                  <div className="h-3 bg-muted rounded animate-pulse w-48" />
+                </div>
+                <div className="h-5 w-9 bg-muted rounded-full animate-pulse" />
               </div>
-              <div className="space-y-1">
-                <Label>Confirm New Password</Label>
-                <PasswordInput value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} />
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {notifItems.map(({ key, label, description }) => (
+              <div key={key} className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">{label}</p>
+                  <p className="text-xs text-muted-foreground">{description}</p>
+                </div>
+                <Switch
+                  checked={notifPrefs[key]}
+                  onCheckedChange={(v) => void handleNotifToggle(key, v)}
+                  className="cursor-pointer shrink-0"
+                />
               </div>
-            </div>
-            <Button onClick={handleSavePassword} disabled={isSavingPw}>
-              {isSavingPw ? 'Updating...' : 'Update Password'}
-            </Button>
+            ))}
           </div>
         )}
       </div>
 
-      {/* Danger Zone — Deactivate */}
-      <div className="rounded-xl border border-destructive/30 bg-card p-6">
-        <div className="flex items-center gap-2 mb-2">
-          <Shield size={16} className="text-destructive" />
-          <h2 className="text-base font-semibold text-destructive">Danger Zone</h2>
+      {/* Preferences */}
+      <div className="rounded-xl border bg-card p-6 space-y-5">
+        <div className="flex items-center gap-2">
+          <Palette size={16} className="text-muted-foreground" />
+          <h2 className="text-base font-semibold">Preferences</h2>
         </div>
-        <p className="text-sm text-muted-foreground mb-4">
-          Deactivating your account will remove access to all your data. This action cannot be reversed.
-        </p>
-        <Button
-          variant="destructive"
-          className="gap-2"
-          onClick={() => setDeactivateOpen(true)}
-        >
-          <Trash2 size={14} />
-          Deactivate Account
-        </Button>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <Label>Default Currency</Label>
+            <Select value={currency} onValueChange={handleCurrencyChange} disabled={isSavingCurrency}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {CURRENCIES.map((c) => (
+                  <SelectItem key={c} value={c}>{getCurrencySymbol(c)} {c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Date Format</Label>
+            <Select value={appPrefs.date_format} onValueChange={(v) => updateAppPref('date_format', v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {DATE_FORMATS.map((f) => (
+                  <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Theme</Label>
+            <Select value={theme} onValueChange={(v) => setTheme(v as 'light' | 'dark')}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="light"><span className="flex items-center gap-2"><Sun size={14} /> Light</span></SelectItem>
+                <SelectItem value="dark"><span className="flex items-center gap-2"><Moon size={14} /> Dark</span></SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Default Account</Label>
+            <Select value={appPrefs.default_account_id} onValueChange={(v) => updateAppPref('default_account_id', v)}>
+              <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+              <SelectContent>
+                {accounts.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Week Starts On</Label>
+            <Select value={appPrefs.week_start} onValueChange={(v) => updateAppPref('week_start', v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {WEEK_STARTS.map((w) => (
+                  <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </div>
 
-      {/* Deactivate confirmation dialog */}
-      <Dialog open={deactivateOpen} onOpenChange={(open) => { setDeactivateOpen(open); if (!open) setDeactivateText(''); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-destructive">Deactivate Account</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <p className="text-sm text-muted-foreground">
-              This will deactivate your account and log you out. All your data will be preserved but inaccessible until a superadmin restores your account.
-            </p>
-            <div className="space-y-1">
-              <Label>
-                Type <span className="font-semibold text-foreground">Deactivate my account</span> to confirm
-              </Label>
-              <Input
-                value={deactivateText}
-                onChange={(e) => setDeactivateText(e.target.value)}
-                placeholder="Deactivate my account"
-              />
+      {/* Privacy */}
+      <div className="rounded-xl border bg-card p-6 space-y-5">
+        <div className="flex items-center gap-2">
+          <Lock size={16} className="text-muted-foreground" />
+          <h2 className="text-base font-semibold">Privacy</h2>
+        </div>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">Export Your Data</p>
+              <p className="text-xs text-muted-foreground">Download all your transactions as a CSV file</p>
             </div>
+            <Button variant="outline" size="sm" className="gap-1.5 shrink-0" onClick={handleExportData} disabled={isExporting}>
+              <Download size={14} /> {isExporting ? 'Exporting...' : 'Export'}
+            </Button>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setDeactivateOpen(false); setDeactivateText(''); }}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={deactivateText !== 'Deactivate my account' || isDeactivating}
-              onClick={handleDeactivate}
-            >
-              {isDeactivating ? 'Deactivating...' : 'Confirm Deactivation'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">Connected Sessions</p>
+              <p className="text-xs text-muted-foreground">SSO and OAuth provider connections</p>
+            </div>
+            <span className="text-xs text-muted-foreground shrink-0">No active sessions</span>
+          </div>
+        </div>
+      </div>
 
-      {/* Avatar crop dialog */}
-      <Dialog open={cropDialogOpen} onOpenChange={setCropDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader><DialogTitle>Crop Profile Picture</DialogTitle></DialogHeader>
-          <div className="mt-3 flex justify-center">
-            {imgSrc && (
-              <ReactCrop crop={crop} onChange={(_, percentCrop) => setCrop(percentCrop)} onComplete={(c) => setCompletedCrop(c)} aspect={1} circularCrop>
-                <img ref={imgRef} src={imgSrc} alt="Crop preview" onLoad={onImageLoad} className="max-h-[400px]" />
-              </ReactCrop>
-            )}
+      {/* About */}
+      <div className="rounded-xl border bg-card p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <Info size={16} className="text-muted-foreground" />
+          <h2 className="text-base font-semibold">About</h2>
+        </div>
+        <div className="space-y-3 text-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">App Name</span>
+            <span className="font-medium">{appName || 'Cashlytics'}</span>
           </div>
-          <Button className="mt-4 w-full" onClick={handleSaveAvatar} disabled={isSavingAvatar}>
-            {isSavingAvatar ? 'Saving...' : 'Save'}
-          </Button>
-        </DialogContent>
-      </Dialog>
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Version</span>
+            <span className="font-mono text-xs">{appVersion || '—'}</span>
+          </div>
+          <div className="border-t pt-3 flex gap-4">
+            <a href="#" className="text-xs text-primary hover:underline">Terms of Service</a>
+            <a href="#" className="text-xs text-primary hover:underline">Privacy Policy</a>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -82,9 +82,9 @@ export function SuperadminLayout({ children }: SuperadminLayoutProps) {
                 <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
               </div>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer">
+              <DropdownMenuItem onClick={() => navigate('/profile')} className="cursor-pointer">
                 <User size={14} className="mr-2" />
-                Profile & Settings
+                Profile
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

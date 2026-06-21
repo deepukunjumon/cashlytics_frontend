@@ -16,6 +16,7 @@ import OnboardingPage from '@/pages/OnboardingPage';
 import RecurringPage from '@/pages/RecurringPage';
 import RegisterPage from '@/pages/RegisterPage';
 import ReportsPage from '@/pages/ReportsPage';
+import ProfilePage from '@/pages/ProfilePage';
 import SettingsPage from '@/pages/SettingsPage';
 import TransactionsPage from '@/pages/TransactionsPage';
 import SsoCallbackPage from '@/pages/SsoCallbackPage';
@@ -73,6 +74,7 @@ function App() {
         <Route path="/recurring"     element={<ProtectedAppPage><RecurringPage /></ProtectedAppPage>} />
         <Route path="/reports"       element={<ProtectedAppPage><ReportsPage /></ProtectedAppPage>} />
         <Route path="/notifications" element={<ProtectedAppPage><NotificationsPage /></ProtectedAppPage>} />
+        <Route path="/profile"       element={<ProtectedAppPage><ProfilePage /></ProtectedAppPage>} />
         <Route path="/settings"      element={<ProtectedAppPage><SettingsPage /></ProtectedAppPage>} />
 
         {/* Superadmin routes — dedicated layout */}
