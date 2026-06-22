@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, Download, Plus, Search, Trash2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -23,7 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { createTransaction, deleteTransaction, exportTransactionsCsv, getTransactions, type TransactionFilters } from '@/api/transactions';
+import { createTransaction, deleteTransaction, exportTransactionsCsv, getTransactions, updateTransaction, type TransactionFilters } from '@/api/transactions';
 import { getAccounts } from '@/api/accounts';
 import { getCategories } from '@/api/categories';
 import { useAuthStore } from '@/store/authStore';
@@ -51,6 +51,7 @@ function TransactionsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [filterType, setFilterType] = useState(searchParams.get('type') ?? '');
   const [filterMonth, setFilterMonth] = useState(searchParams.get('month') ?? '');
@@ -84,7 +85,21 @@ function TransactionsPage() {
   });
 
   useEffect(() => {
-    if (dialogOpen) reset(freshDefaults());
+    if (dialogOpen) {
+      if (editingTx) {
+        reset({
+          type: editingTx.type as any,
+          account_id: editingTx.account_id ?? '',
+          category_id: editingTx.category_id ?? '',
+          amount: editingTx.amount,
+          date: editingTx.date?.split('T')[0] ?? '',
+          time: editingTx.time ?? '',
+          note: editingTx.note ?? '',
+        });
+      } else {
+        reset(freshDefaults());
+      }
+    }
   }, [dialogOpen]);
 
   const loadTransactions = async (p = page, pp = perPage, q = search, typeF = filterType, monthF = filterMonth) => {
@@ -130,12 +145,23 @@ function TransactionsPage() {
   const onSubmit = async (data: FormValues) => {
     setIsSaving(true);
     try {
-      await createTransaction({ ...data, category_id: data.category_id || undefined });
+      if (editingTx) {
+        await updateTransaction(editingTx.id, { ...data, category_id: data.category_id || undefined });
+        toast.success('Transaction updated.');
+      } else {
+        await createTransaction({ ...data, category_id: data.category_id || undefined });
+        toast.success('Transaction added.');
+      }
       setDialogOpen(false);
-      toast.success('Transaction added.');
-      void loadTransactions(1);
+      setEditingTx(null);
+      void loadTransactions();
     } catch (e) { toast.error(getErrorMessage(e)); }
     finally { setIsSaving(false); }
+  };
+
+  const openEdit = (t: Transaction) => {
+    setEditingTx(t);
+    setDialogOpen(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -168,7 +194,7 @@ function TransactionsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Transactions</h1>
-        <Button className="gap-2" onClick={() => setDialogOpen(true)}>
+        <Button className="gap-2" onClick={() => { setEditingTx(null); setDialogOpen(true); }}>
           <Plus size={16} /> Add Transaction
         </Button>
       </div>
@@ -260,10 +286,16 @@ function TransactionsPage() {
                     <p className="text-xs text-muted-foreground">{formatDate(t.date)}{t.time ? ` · ${formatTime(t.time)}` : ''} · {t.account?.name}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <span className={`text-sm font-semibold ${t.type === 'income' ? 'text-emerald-600' : t.type === 'expense' ? 'text-rose-600' : 'text-blue-600'}`}>
                     {t.type === 'income' ? '+' : '−'}{formatCurrency(t.amount, currency)}
                   </span>
+                  <button
+                    onClick={() => openEdit(t)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary cursor-pointer"
+                  >
+                    <Pencil size={13} />
+                  </button>
                   <button
                     onClick={() => void handleDelete(t.id)}
                     className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive cursor-pointer"
@@ -310,10 +342,10 @@ function TransactionsPage() {
       )}
 
       {/* Add dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditingTx(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Add Transaction</DialogTitle>
+            <DialogTitle>{editingTx ? 'Edit Transaction' : 'Add Transaction'}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-2">
             <div className="grid grid-cols-3 gap-1 rounded-lg border p-1 bg-muted">
@@ -381,7 +413,7 @@ function TransactionsPage() {
               <Input {...register('note')} placeholder="Add a note..." />
             </div>
             <Button type="submit" className="w-full" disabled={isSaving}>
-              {isSaving ? 'Saving...' : 'Add Transaction'}
+              {isSaving ? 'Saving...' : editingTx ? 'Update Transaction' : 'Add Transaction'}
             </Button>
           </form>
         </DialogContent>
