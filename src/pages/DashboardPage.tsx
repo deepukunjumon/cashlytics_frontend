@@ -343,7 +343,7 @@ function DashboardPage() {
                 checked={Object.values(sections).every(Boolean)}
                 onCheckedChange={(checked) => {
                   const val = !!checked;
-                  const updated = Object.fromEntries(Object.keys(sections).map((k) => [k, val])) as DashboardSections;
+                  const updated = Object.fromEntries(Object.keys(sections).map((k) => [k, val])) as unknown as DashboardSections;
                   setSections(updated);
                   localStorage.setItem(DASHBOARD_SECTIONS_KEY, JSON.stringify(updated));
                 }}
