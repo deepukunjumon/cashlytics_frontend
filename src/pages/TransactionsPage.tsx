@@ -99,6 +99,10 @@ function TransactionsPage() {
       } else {
         reset(freshDefaults());
       }
+      void Promise.all([getAccounts(), getCategories()]).then(([accs, cats]) => {
+        setAccounts(accs);
+        setCategories(cats);
+      });
     }
   }, [dialogOpen]);
 

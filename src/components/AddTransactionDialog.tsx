@@ -40,7 +40,6 @@ export function AddTransactionDialog({ open, onOpenChange, onCreated }: AddTrans
   const [accounts,   setAccounts]   = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isSaving,   setIsSaving]   = useState(false);
-  const [loaded,     setLoaded]     = useState(false);
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema) as any,
@@ -70,16 +69,15 @@ export function AddTransactionDialog({ open, onOpenChange, onCreated }: AddTrans
   }, [open]);
 
   useEffect(() => {
-    if (!open || loaded) return;
+    if (!open) return;
     void (async () => {
       try {
         const [accs, cats] = await Promise.all([getAccounts(), getCategories()]);
         setAccounts(accs);
         setCategories(cats);
-        setLoaded(true);
       } catch (e) { toast.error(getErrorMessage(e)); }
     })();
-  }, [open, loaded]);
+  }, [open]);
 
   const onSubmit = async (data: FormValues) => {
     setIsSaving(true);
