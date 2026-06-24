@@ -1,12 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, Download, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, MoreVertical, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DatePicker, MonthPicker } from '@/components/ui/date-picker';
@@ -279,33 +285,36 @@ function TransactionsPage() {
         ) : (
           <div className="divide-y">
             {transactions.map((t) => (
-              <div key={t.id} className="flex items-center justify-between px-5 py-3 hover:bg-muted/30 transition-colors group">
-                <div className="flex items-center gap-3">
-                  <div className={`size-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0
+              <div key={t.id} className="flex items-start sm:items-center justify-between px-4 sm:px-5 py-3 sm:py-3 hover:bg-muted/30 transition-colors group gap-3">
+                <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+                  <div className={`size-8 sm:size-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 sm:mt-0
                     ${t.type === 'income' ? 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700' : t.type === 'expense' ? 'bg-rose-100 dark:bg-rose-900 text-rose-700' : 'bg-blue-100 dark:bg-blue-900 text-blue-700'}`}>
                     {t.type === 'income' ? '+' : t.type === 'expense' ? '−' : '⇄'}
                   </div>
-                  <div>
-                    <p className="text-sm font-medium">{t.category?.name ?? 'Uncategorised'}</p>
-                    <p className="text-xs text-muted-foreground">{formatDate(t.date)}{t.time ? ` · ${formatTime(t.time)}` : ''} · {t.account?.name}</p>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{t.category?.name ?? 'Uncategorised'}</p>
+                    <p className="text-xs text-muted-foreground truncate">{formatDate(t.date)}{t.time ? ` · ${formatTime(t.time)}` : ''} · {t.account?.name}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className={`text-sm font-semibold ${t.type === 'income' ? 'text-emerald-600' : t.type === 'expense' ? 'text-rose-600' : 'text-blue-600'}`}>
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                  <span className={`text-xs sm:text-sm font-semibold ${t.type === 'income' ? 'text-emerald-600' : t.type === 'expense' ? 'text-rose-600' : 'text-blue-600'}`}>
                     {t.type === 'income' ? '+' : '−'}{formatCurrency(t.amount, currency)}
                   </span>
-                  <button
-                    onClick={() => openEdit(t)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary cursor-pointer"
-                  >
-                    <Pencil size={13} />
-                  </button>
-                  <button
-                    onClick={() => void handleDelete(t.id)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive cursor-pointer"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer">
+                        <MoreVertical size={15} />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-36">
+                      <DropdownMenuItem onClick={() => openEdit(t)} className="cursor-pointer gap-2">
+                        <Pencil size={14} /> Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => void handleDelete(t.id)} className="cursor-pointer gap-2 text-destructive focus:text-destructive">
+                        <Trash2 size={14} /> Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             ))}
