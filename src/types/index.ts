@@ -139,6 +139,17 @@ export interface Notification {
   created_at: string;
 }
 
+/** notify()-driven notifications (e.g. LargeExpenseAdded) — native polymorphic schema. */
+export interface RealtimeNotification {
+  id: string;
+  type: string;
+  notifiable_type: string;
+  notifiable_id: string;
+  data: { message: string; [key: string]: unknown };
+  read_at: string | null;
+  created_at: string;
+}
+
 export interface AuditLog {
   id: string;
   user_id: string | null;

@@ -1,10 +1,12 @@
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import * as authApi from '@/api/auth';
 import { useAuthStore } from '@/store/authStore';
-import type { LoginPayload, RegisterPayload, User } from '@/types';
+import { useNotificationStore } from '@/store/notificationStore';
+import { disconnectEcho, getEcho } from '@/lib/echo';
+import type { LoginPayload, RegisterPayload, RealtimeNotification, User } from '@/types';
 
 interface AuthContextValue {
   user: User | null;
@@ -22,6 +24,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const setAuth = useAuthStore((state) => state.setAuth);
   const clearAuth = useAuthStore((state) => state.clearAuth);
+  const fetchNotifications = useNotificationStore((state) => state.fetch);
+  const pushRealtime = useNotificationStore((state) => state.pushRealtime);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) {
+      disconnectEcho();
+      return;
+    }
+
+    void fetchNotifications();
+
+    const echo = getEcho();
+    const channel = echo.private(`App.Models.User.${user.id}`);
+
+    channel.notification((notification: RealtimeNotification) => {
+      pushRealtime(notification);
+      toast(notification.data.message, { duration: 5000 });
+    });
+
+    return () => {
+      echo.leave(`App.Models.User.${user.id}`);
+    };
+  }, [isAuthenticated, user, fetchNotifications, pushRealtime]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
