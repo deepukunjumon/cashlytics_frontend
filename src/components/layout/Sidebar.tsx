@@ -1,6 +1,5 @@
 import {
   BarChart3,
-  Bell,
   ChevronLeft,
   CreditCard,
   LayoutDashboard,
@@ -46,8 +45,7 @@ const planningNav = [
 ];
 
 const insightsNav = [
-  { to: '/reports',       label: 'Reports',       icon: BarChart3 },
-  { to: '/notifications', label: 'Notifications', icon: Bell },
+  { to: '/reports', label: 'Reports', icon: BarChart3 },
 ];
 
 const accountNav = [

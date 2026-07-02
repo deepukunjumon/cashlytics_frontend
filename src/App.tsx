@@ -10,7 +10,6 @@ import BudgetsPage from '@/pages/BudgetsPage';
 import CategoriesPage from '@/pages/CategoriesPage';
 import DashboardPage from '@/pages/DashboardPage';
 import LoginPage from '@/pages/LoginPage';
-import NotificationsPage from '@/pages/NotificationsPage';
 import OAuthCallbackPage from '@/pages/OAuthCallbackPage';
 import OnboardingPage from '@/pages/OnboardingPage';
 import RecurringPage from '@/pages/RecurringPage';
@@ -73,7 +72,6 @@ function App() {
         <Route path="/budgets"       element={<ProtectedAppPage><BudgetsPage /></ProtectedAppPage>} />
         <Route path="/recurring"     element={<ProtectedAppPage><RecurringPage /></ProtectedAppPage>} />
         <Route path="/reports"       element={<ProtectedAppPage><ReportsPage /></ProtectedAppPage>} />
-        <Route path="/notifications" element={<ProtectedAppPage><NotificationsPage /></ProtectedAppPage>} />
         <Route path="/profile"       element={<ProtectedAppPage><ProfilePage /></ProtectedAppPage>} />
         <Route path="/settings"      element={<ProtectedAppPage><SettingsPage /></ProtectedAppPage>} />
 

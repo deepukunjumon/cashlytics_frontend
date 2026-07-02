@@ -128,17 +128,6 @@ export interface Budget {
   percent?: number;
 }
 
-export interface Notification {
-  id: string;
-  user_id: string;
-  type: string;
-  title: string;
-  body: string;
-  data: Record<string, unknown> | null;
-  read_at: string | null;
-  created_at: string;
-}
-
 /** notify()-driven notifications (e.g. LargeExpenseAdded) — native polymorphic schema. */
 export interface RealtimeNotification {
   id: string;
