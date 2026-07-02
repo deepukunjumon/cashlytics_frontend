@@ -18,3 +18,7 @@ export async function markOneRead(id: string): Promise<void> {
 export async function markAllRead(): Promise<void> {
   await api.post('/realtime-notifications/read-all');
 }
+
+export async function clearAll(): Promise<void> {
+  await api.delete('/realtime-notifications');
+}

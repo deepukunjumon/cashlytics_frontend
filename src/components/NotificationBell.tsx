@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, Check } from 'lucide-react';
+import { Bell, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,9 +7,22 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useNotificationStore } from '@/store/notificationStore';
 import { formatDate } from '@/lib/utils';
 
+const SLIDE_OUT_DURATION_MS = 250;
+const STAGGER_STEP_MS = 30;
+const MAX_STAGGERED_ITEMS = 6;
+
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
-  const { items, unreadCount, markRead, markAllRead } = useNotificationStore();
+  const [isClearing, setIsClearing] = useState(false);
+  const { items, unreadCount, markRead, clearAll } = useNotificationStore();
+
+  const handleClearAll = () => {
+    setIsClearing(true);
+    const maxDelay = Math.min(items.length - 1, MAX_STAGGERED_ITEMS) * STAGGER_STEP_MS;
+    setTimeout(() => {
+      void clearAll().finally(() => setIsClearing(false));
+    }, SLIDE_OUT_DURATION_MS + maxDelay);
+  };
 
   return (
     <>
@@ -35,12 +48,12 @@ export function NotificationBell() {
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="end" className="w-80 p-0">
+        <PopoverContent align="end" className="w-80 p-0 ml-15">
           <div className="flex items-center justify-between px-3 py-2 border-b">
             <p className="text-sm font-semibold">Notifications</p>
-            {unreadCount > 0 && (
-              <Button variant="ghost" size="xs" className="gap-1 text-xs" onClick={() => void markAllRead()}>
-                <Check size={12} /> Mark all read
+            {items.length > 0 && (
+              <Button variant="ghost" size="xs" className="gap-1 text-xs" disabled={isClearing} onClick={handleClearAll}>
+                <Trash2 size={12} /> Clear all
               </Button>
             )}
           </div>
@@ -53,13 +66,17 @@ export function NotificationBell() {
               </div>
             ) : (
               <div className="divide-y">
-                {items.map((notification) => {
+                {items.map((notification, index) => {
                   const isUnread = !notification.read_at;
                   return (
                     <div
                       key={notification.id}
                       onClick={() => isUnread && void markRead(notification.id)}
-                      className={`px-3 py-2.5 cursor-pointer hover:bg-muted/60 transition-colors ${isUnread ? 'bg-muted/40' : ''}`}
+                      style={isClearing ? { animationDelay: `${Math.min(index, MAX_STAGGERED_ITEMS) * STAGGER_STEP_MS}ms` } : undefined}
+                      className={`px-3 py-2.5 cursor-pointer hover:bg-muted/60 transition-colors ${isUnread ? 'bg-muted/40' : ''} ${
+                        // Tailwind's scanner needs this class literal, not interpolated — keep in sync with SLIDE_OUT_DURATION_MS.
+                        isClearing ? 'animate-out slide-out-to-right fade-out fill-mode-forwards duration-[250ms]' : ''
+                      }`}
                     >
                       <div className="flex items-start gap-2">
                         {isUnread && <div className="size-1.5 rounded-full bg-primary mt-1.5 shrink-0" />}

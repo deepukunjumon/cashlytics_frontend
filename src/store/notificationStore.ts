@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import { getRealtimeNotifications, getUnreadCount, markAllRead, markOneRead } from '@/api/realtimeNotifications';
+import { clearAll, getRealtimeNotifications, getUnreadCount, markAllRead, markOneRead } from '@/api/realtimeNotifications';
 import type { RealtimeNotification } from '@/types';
 
 interface NotificationState {
@@ -10,6 +10,7 @@ interface NotificationState {
   pushRealtime: (notification: RealtimeNotification) => void;
   markRead:    (id: string) => Promise<void>;
   markAllRead: () => Promise<void>;
+  clearAll:    () => Promise<void>;
 }
 
 export const useNotificationStore = create<NotificationState>((set) => ({
@@ -22,10 +23,14 @@ export const useNotificationStore = create<NotificationState>((set) => ({
   },
 
   pushRealtime: (notification) => {
-    set((state) => ({
-      items: [notification, ...state.items],
-      unreadCount: state.unreadCount + 1,
-    }));
+    set((state) => {
+      if (state.items.some((n) => n.id === notification.id)) return state;
+
+      return {
+        items: [notification, ...state.items],
+        unreadCount: state.unreadCount + 1,
+      };
+    });
   },
 
   markRead: async (id) => {
@@ -45,5 +50,10 @@ export const useNotificationStore = create<NotificationState>((set) => ({
       items: state.items.map((n) => ({ ...n, read_at: n.read_at ?? new Date().toISOString() })),
       unreadCount: 0,
     }));
+  },
+
+  clearAll: async () => {
+    await clearAll();
+    set({ items: [], unreadCount: 0 });
   },
 }));
