@@ -40,7 +40,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     channel.notification((notification: RealtimeNotification) => {
       pushRealtime(notification);
-      toast(notification.data.message, { duration: 5000 });
     });
 
     return () => {

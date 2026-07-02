@@ -18,6 +18,8 @@ export function getEcho(): Echo<'reverb'> {
   // has no /api prefix — strip it off VITE_API_URL to get the app origin.
   const apiOrigin = (import.meta.env.VITE_API_URL as string).replace(/\/api\/?$/, '');
 
+  const useTLS = (import.meta.env.VITE_REVERB_SCHEME ?? 'http') === 'https';
+
   echoInstance = new Echo({
     broadcaster: 'reverb',
     Pusher,
@@ -25,8 +27,8 @@ export function getEcho(): Echo<'reverb'> {
     wsHost: import.meta.env.VITE_REVERB_HOST,
     wsPort: Number(import.meta.env.VITE_REVERB_PORT ?? 8080),
     wssPort: Number(import.meta.env.VITE_REVERB_PORT ?? 8080),
-    forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'http') === 'https',
-    enabledTransports: ['ws', 'wss'],
+    forceTLS: useTLS,
+    enabledTransports: useTLS ? ['wss'] : ['ws'],
     authEndpoint: `${apiOrigin}/broadcasting/auth`,
     bearerToken: token,
   });
