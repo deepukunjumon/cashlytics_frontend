@@ -1,4 +1,4 @@
-import { Bell, Menu, Moon, Sun, User } from 'lucide-react';
+import { Menu, Moon, Sun, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -10,6 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { NotificationBell } from '@/components/NotificationBell';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useSidebarStore } from '@/store/sidebarStore';
@@ -56,9 +57,7 @@ export function Navbar() {
       </Button>
 
       {/* Notifications */}
-      <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-8 sm:w-8" onClick={() => navigate('/notifications')} aria-label="Notifications">
-        <Bell className="size-5 sm:size-[18px]" />
-      </Button>
+      <NotificationBell />
 
       {/* User menu */}
       <DropdownMenu>
