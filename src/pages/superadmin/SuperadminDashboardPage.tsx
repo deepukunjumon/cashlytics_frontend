@@ -38,7 +38,7 @@ function SuperadminDashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Shield className="text-amber-500" size={24} />
+        <Shield className="text-blue-500" size={24} />
         <h1 className="text-2xl font-bold">Superadmin Panel</h1>
       </div>
 
@@ -63,7 +63,7 @@ function SuperadminDashboardPage() {
         {navCards.map(({ label, to, icon: Icon }) => (
           <button key={to} onClick={() => navigate(to)}
             className="rounded-xl border bg-card p-5 text-left hover:bg-muted/30 transition-colors">
-            <Icon size={20} className="text-amber-500 mb-2" />
+            <Icon size={20} className="text-blue-500 mb-2" />
             <p className="text-sm font-medium">{label}</p>
           </button>
         ))}

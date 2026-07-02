@@ -185,7 +185,7 @@ export function Sidebar() {
             <div>
               <p
                 className={cn(
-                  'text-[10px] uppercase tracking-widest text-amber-500 px-3 mb-1 mt-4 font-semibold overflow-hidden whitespace-nowrap transition-all duration-300',
+                  'text-[10px] uppercase tracking-widest text-blue-500 px-3 mb-1 mt-4 font-semibold overflow-hidden whitespace-nowrap transition-all duration-300',
                   isOpen ? 'opacity-100 max-h-4' : 'opacity-0 max-h-0 mt-0 mb-0'
                 )}
               >
@@ -197,8 +197,8 @@ export function Sidebar() {
                 className={({ isActive }) =>
                   cn(
                     'flex items-center gap-3 px-2.5 py-2 rounded-md text-sm font-medium transition-colors',
-                    'text-amber-600 dark:text-amber-400 hover:bg-amber-500/10',
-                    isActive && 'bg-amber-500/10 font-semibold'
+                    'text-blue-600 dark:text-blue-400 hover:bg-blue-500/10',
+                    isActive && 'bg-blue-500/10 font-semibold'
                   )
                 }
                 title={!isOpen ? 'Superadmin' : undefined}

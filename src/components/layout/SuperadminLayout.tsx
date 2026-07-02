@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
+import { useSuperadminSidebarStore } from '@/store/superadminSidebarStore';
 
 interface SuperadminLayoutProps {
   children: ReactNode;
@@ -22,6 +23,7 @@ export function SuperadminLayout({ children }: SuperadminLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
+  const { collapsed } = useSuperadminSidebarStore();
   const navigate = useNavigate();
 
   const initials = user?.name
@@ -35,13 +37,13 @@ export function SuperadminLayout({ children }: SuperadminLayoutProps) {
         onMobileClose={() => setMobileOpen(false)}
       />
 
-      {/* Main content — no left margin on mobile; offset by sidebar on md+ */}
-      <div className="flex flex-col min-h-screen transition-all duration-300 md:ml-60">
-        {/* Amber top accent bar */}
-        <div className="h-1 bg-gradient-to-r from-amber-500 via-orange-400 to-amber-600 shrink-0" />
+      {/* Main content — no left margin on mobile; offset by sidebar (collapsed or expanded) on md+ */}
+      <div className={`flex flex-col min-h-screen transition-all duration-300 ${collapsed ? 'md:ml-16' : 'md:ml-60'}`}>
+        {/* Blue top accent bar */}
+        <div className="h-1 bg-gradient-to-r from-blue-500 via-sky-400 to-blue-600 shrink-0" />
 
         {/* Admin topbar */}
-        <header className="h-14 border-b bg-amber-50/50 dark:bg-amber-900/10 border-amber-200/50 dark:border-amber-700/30 flex items-center px-4 gap-3 shrink-0">
+        <header className="h-14 border-b bg-blue-50/50 dark:bg-blue-900/10 border-blue-200/50 dark:border-blue-700/30 flex items-center px-4 gap-3 shrink-0">
           {/* Hamburger — mobile only */}
           <Button
             variant="ghost"
@@ -53,7 +55,7 @@ export function SuperadminLayout({ children }: SuperadminLayoutProps) {
             <Menu size={24} />
           </Button>
 
-          <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 shrink-0">
+          <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 shrink-0">
             <Shield size={16} />
             <span className="text-sm font-semibold">Superadmin Panel</span>
           </div>
