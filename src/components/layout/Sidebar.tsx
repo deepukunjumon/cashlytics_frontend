@@ -9,7 +9,6 @@ import {
   Settings,
   Shield,
   Tag,
-  TrendingUp,
   User,
   Wallet,
 } from 'lucide-react';
@@ -18,9 +17,13 @@ import { NavLink, useNavigate } from 'react-router-dom';
 
 import { useAuthStore } from '@/store/authStore';
 import { useSidebarStore } from '@/store/sidebarStore';
+import { useThemeStore } from '@/store/themeStore';
 import { cn } from '@/lib/utils';
 import { logout } from '@/api/auth';
 import { toast } from 'sonner';
+import logoIcon from '@/assets/logo-icon.png';
+import logoWhiteText from '@/assets/logo-white-text.png';
+import logoDarkText from '@/assets/logo-dark-text.png';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -105,8 +108,10 @@ function NavSection({ label, items, isOpen, onNavigate }: NavSectionProps) {
 export function Sidebar() {
   const { isOpen, toggle, close } = useSidebarStore();
   const { user, clearAuth } = useAuthStore();
+  const { theme } = useThemeStore();
   const navigate = useNavigate();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const fullLogo = theme === 'dark' ? logoWhiteText : logoDarkText;
 
   const closeMobile = () => {
     if (window.innerWidth < 768) close();
@@ -138,18 +143,30 @@ export function Sidebar() {
       >
         {/* Logo / Header */}
         <div className="relative flex items-center justify-between h-16 px-4 border-b border-[var(--sidebar-border)] shrink-0">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center shrink-0">
-              <TrendingUp size={15} className="text-primary-foreground" />
-            </div>
-            <span
+          <div
+            className={cn(
+              'relative h-9 shrink-0 overflow-hidden transition-all duration-100',
+              isOpen ? 'w-[130px]' : 'w-9'
+            )}
+          >
+            {/* Icon only — shown when collapsed */}
+            <img
+              src={logoIcon}
+              alt="Cashlytics"
               className={cn(
-                'text-[var(--sidebar-foreground)] font-bold text-sm tracking-tight truncate overflow-hidden transition-all duration-300',
-                isOpen ? 'opacity-100 max-w-[160px]' : 'opacity-0 max-w-0'
+                'absolute inset-y-0 left-0 h-9 w-9 object-contain transition-opacity duration-300',
+                isOpen ? 'opacity-0' : 'opacity-100'
               )}
-            >
-              Cashlytics
-            </span>
+            />
+            {/* Full logo (icon + text), theme-swapped — shown when expanded */}
+            <img
+              src={fullLogo}
+              alt="Cashlytics"
+              className={cn(
+                'absolute inset-y-0 left-0 w-auto h-9 object-contain object-left transition-opacity duration-300',
+                isOpen ? 'opacity-100' : 'opacity-0'
+              )}
+            />
           </div>
           {/* Collapse/expand toggle — single stable element, decoupled from header flex layout */}
           <button
